@@ -1,0 +1,41 @@
+/* Design tokens — placeholder values, finalize in design session */
+:root {
+  --color-bg: #ffffff;
+  --color-bg-subtle: #f9fafb;
+  --color-border: #e5e7eb;
+  --color-text: #111827;
+  --color-text-subtle: #6b7280;
+
+  --color-sidebar-bg: #111827;
+  --color-sidebar-text: #9ca3af;
+  --color-sidebar-text-active: #ffffff;
+  --color-sidebar-item-active: rgba(255, 255, 255, 0.08);
+
+  --color-bottomnav-bg: #ffffff;
+  --color-bottomnav-text: #6b7280;
+  --color-bottomnav-text-active: #111827;
+  --color-fab-bg: #111827;
+  --color-fab-text: #ffffff;
+
+  --sidebar-width: 240px;
+  --bottomnav-height: 64px;
+  --header-height: 52px;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--color-text);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+}
