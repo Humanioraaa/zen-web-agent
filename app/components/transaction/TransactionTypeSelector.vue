@@ -65,17 +65,17 @@ const options = [
 }
 
 .type-btn--expense.type-btn--active {
-  border-color: #dc2626;
-  color: #dc2626;
+  border-color: var(--color-danger);
+  color: var(--color-danger);
 }
 
 .type-btn--income.type-btn--active {
-  border-color: #16a34a;
-  color: #16a34a;
+  border-color: var(--color-success);
+  color: var(--color-success);
 }
 
 .type-btn--transfer.type-btn--active {
-  border-color: #2563eb;
-  color: #2563eb;
+  border-color: var(--color-info);
+  color: var(--color-info);
 }
 </style>

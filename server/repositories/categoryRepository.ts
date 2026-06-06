@@ -4,7 +4,7 @@ import type { H3Event } from 'h3'
 
 export async function getCategories(event: H3Event, type?: string) {
   const client = await serverSupabaseClient(event)
-  let query = client.from('categories').select('*').order('name')
+  let query = client.from('categories').select('id, name, type, is_default').order('name')
   if (type) query = query.eq('type', type as Enums<'category_type'>)
   const { data, error } = await query
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })
@@ -15,7 +15,7 @@ export async function getCategoryById(event: H3Event, id: string) {
   const client = await serverSupabaseClient(event)
   const { data, error } = await client
     .from('categories')
-    .select('*')
+    .select('id, name, type, is_default')
     .eq('id', id)
     .single()
   if (error) throw createError({ statusCode: 404, statusMessage: 'Category not found' })

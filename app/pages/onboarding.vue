@@ -62,7 +62,7 @@ const step = ref(1)
 const isSubmitting = ref(false)
 const errorMessage = ref('')
 
-interface Wallet { id: string; name: string; balance: number }
+import type { Wallet } from '~/types/models'
 const wallets = ref<Wallet[]>([])
 const balances = ref<Record<string, number>>({})
 
@@ -219,9 +219,9 @@ async function handleSkip() {
 
 .error-message {
   font-size: 14px;
-  color: #dc2626;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger-border);
   border-radius: var(--radius-sm);
   padding: 10px 12px;
   text-align: left;
@@ -269,11 +269,4 @@ async function handleSkip() {
   cursor: not-allowed;
 }
 
-.spin {
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
 </style>

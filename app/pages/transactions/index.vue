@@ -55,23 +55,7 @@
 <script setup lang="ts">
 import { IconPlus, IconReceiptOff, IconLoader2 } from '@tabler/icons-vue'
 import { useToast } from 'vue-toastification'
-
-interface Tx {
-  id: string
-  type: 'income' | 'expense' | 'transfer'
-  amount: number | string
-  wallet_id: string
-  wallet_to_id: string | null
-  category_id: string | null
-  note: string | null
-  date: string
-  source: 'web' | 'telegram'
-  created_at: string
-  wallet: { id: string; name: string } | null
-  wallet_to: { id: string; name: string } | null
-  category: { id: string; name: string; type: string } | null
-  creator: { id: string; name: string } | null
-}
+import type { TransactionRecord, Wallet, Category } from '~/types/models'
 
 const route = useRoute()
 const toast = useToast()
@@ -87,13 +71,12 @@ const filters = reactive({
   search: '',
 })
 
-// reference data for filter bar + edit dropdowns
-const { data: walletsData } = await useFetch('/api/wallets')
-const { data: catData } = await useFetch('/api/categories')
-const wallets = computed(() => (walletsData.value as any)?.data ?? [])
-const categories = computed(() => (catData.value as any)?.data ?? [])
+const { data: walletsData } = await useFetch<{ data: Wallet[] }>('/api/wallets')
+const { data: catData } = await useFetch<{ data: Category[] }>('/api/categories')
+const wallets = computed(() => walletsData.value?.data ?? [])
+const categories = computed(() => catData.value?.data ?? [])
 
-const items = ref<Tx[]>([])
+const items = ref<TransactionRecord[]>([])
 const total = ref(0)
 const offset = ref(0)
 const loading = ref(true)
@@ -112,7 +95,7 @@ const hasActiveFilter = computed(
 )
 
 const grouped = computed(() => {
-  const map = new Map<string, Tx[]>()
+  const map = new Map<string, TransactionRecord[]>()
   for (const tx of items.value) {
     if (!map.has(tx.date)) map.set(tx.date, [])
     map.get(tx.date)!.push(tx)
@@ -140,7 +123,7 @@ async function load(reset: boolean) {
   }
 
   try {
-    const res = await $fetch<{ data: Tx[]; total: number }>('/api/transactions', {
+    const res = await $fetch<{ data: TransactionRecord[]; total: number }>('/api/transactions', {
       query: buildQuery(),
     })
     items.value = reset ? res.data : [...items.value, ...res.data]
@@ -301,19 +284,6 @@ onMounted(() => load(true))
   background: var(--color-bg-subtle);
   border-radius: var(--radius-sm);
   animation: pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-
-.spin {
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 @media (min-width: 640px) {

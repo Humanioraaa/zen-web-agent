@@ -58,10 +58,10 @@ defineProps<{
 }
 
 .summary-item--income .summary-amount {
-  color: #16a34a;
+  color: var(--color-success);
 }
 
 .summary-item--expense .summary-amount {
-  color: #dc2626;
+  color: var(--color-danger);
 }
 </style>

@@ -79,20 +79,13 @@
 <script setup lang="ts">
 import { IconLoader2 } from '@tabler/icons-vue'
 import { useToast } from 'vue-toastification'
+import type { Wallet, Category } from '~/types/models'
 
 const toast = useToast()
+const { todayLocal } = useDateUtils()
+const { validateTransaction } = useTransactionValidation()
 
 type TxType = 'expense' | 'income' | 'transfer'
-
-interface Wallet { id: string; name: string; balance: number }
-interface Category { id: string; name: string; type: 'income' | 'expense' }
-
-// local YYYY-MM-DD (avoids UTC date shift in WIB)
-function todayLocal(): string {
-  const d = new Date()
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset())
-  return d.toISOString().slice(0, 10)
-}
 
 const type = ref<TxType>('expense')
 const amount = ref(0)
@@ -105,11 +98,11 @@ const note = ref('')
 const isSubmitting = ref(false)
 const errorMessage = ref('')
 
-const { data: walletsData } = await useFetch('/api/wallets')
-const { data: catData } = await useFetch('/api/categories')
+const { data: walletsData } = await useFetch<{ data: Wallet[] }>('/api/wallets')
+const { data: catData } = await useFetch<{ data: Category[] }>('/api/categories')
 
-const wallets = computed<Wallet[]>(() => (walletsData.value as any)?.data ?? [])
-const categories = computed<Category[]>(() => (catData.value as any)?.data ?? [])
+const wallets = computed(() => walletsData.value?.data ?? [])
+const categories = computed(() => catData.value?.data ?? [])
 
 const isTransfer = computed(() => type.value === 'transfer')
 
@@ -133,20 +126,14 @@ watch(walletId, () => {
   if (walletToId.value === walletId.value) walletToId.value = ''
 })
 
-function validate(): string | null {
-  if (amount.value <= 0) return 'Nominal harus lebih dari 0'
-  if (!walletId.value) return isTransfer.value ? 'Pilih wallet asal' : 'Pilih wallet'
-  if (isTransfer.value) {
-    if (!walletToId.value) return 'Pilih wallet tujuan'
-    if (walletToId.value === walletId.value) return 'Wallet asal dan tujuan tidak boleh sama'
-  } else if (!categoryId.value) {
-    return 'Pilih kategori'
-  }
-  return null
-}
-
 async function handleSubmit() {
-  const err = validate()
+  const err = validateTransaction({
+    amount: amount.value,
+    walletId: walletId.value,
+    walletToId: walletToId.value,
+    categoryId: categoryId.value,
+    isTransfer: isTransfer.value,
+  })
   if (err) {
     errorMessage.value = err
     return
@@ -251,9 +238,9 @@ async function handleSubmit() {
 
 .error-message {
   font-size: 14px;
-  color: #dc2626;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger-border);
   border-radius: var(--radius-sm);
   padding: 10px 12px;
 }
@@ -305,14 +292,6 @@ async function handleSubmit() {
 .submit-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-
-.spin {
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 @media (min-width: 640px) {

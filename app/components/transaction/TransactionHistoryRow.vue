@@ -1,7 +1,7 @@
 <template>
   <div class="history-row" :class="{ 'history-row--open': expanded }">
     <!-- Collapsed summary (always visible) -->
-    <button type="button" class="row-head" @click="toggle">
+    <button type="button" class="row-head" :aria-expanded="expanded" @click="toggle">
       <div class="row-info">
         <span class="row-label">{{ label }}</span>
         <span class="row-meta">{{ metaLine }}</span>
@@ -142,37 +142,19 @@
 <script setup lang="ts">
 import { IconPencil, IconTrash, IconLoader2 } from '@tabler/icons-vue'
 import { useToast } from 'vue-toastification'
-
-interface Wallet { id: string; name: string }
-interface Category { id: string; name: string; type: 'income' | 'expense' }
-
-interface Transaction {
-  id: string
-  type: 'income' | 'expense' | 'transfer'
-  amount: number | string
-  wallet_id: string
-  wallet_to_id: string | null
-  category_id: string | null
-  note: string | null
-  date: string
-  source: 'web' | 'telegram'
-  created_at: string
-  wallet: { id: string; name: string } | null
-  wallet_to: { id: string; name: string } | null
-  category: { id: string; name: string; type: string } | null
-  creator: { id: string; name: string } | null
-}
+import type { TransactionRecord, Wallet, Category } from '~/types/models'
 
 const props = defineProps<{
-  transaction: Transaction
-  wallets: Wallet[]
-  categories: Category[]
+  transaction: TransactionRecord
+  wallets: Pick<Wallet, 'id' | 'name'>[]
+  categories: Pick<Category, 'id' | 'name' | 'type'>[]
 }>()
 
 const emit = defineEmits<{ changed: [] }>()
 
 const { formatRupiah } = useFormatRupiah()
 const toast = useToast()
+const { validateTransaction } = useTransactionValidation()
 
 const expanded = ref(false)
 const editing = ref(false)
@@ -258,20 +240,14 @@ function cancelEdit() {
   editError.value = ''
 }
 
-function validate(): string | null {
-  if (edit.amount <= 0) return 'Nominal harus lebih dari 0'
-  if (!edit.wallet_id) return isTransfer.value ? 'Pilih wallet asal' : 'Pilih wallet'
-  if (isTransfer.value) {
-    if (!edit.wallet_to_id) return 'Pilih wallet tujuan'
-    if (edit.wallet_to_id === edit.wallet_id) return 'Wallet asal dan tujuan tidak boleh sama'
-  } else if (!edit.category_id) {
-    return 'Pilih kategori'
-  }
-  return null
-}
-
 async function saveEdit() {
-  const err = validate()
+  const err = validateTransaction({
+    amount: edit.amount,
+    walletId: edit.wallet_id,
+    walletToId: edit.wallet_to_id,
+    categoryId: edit.category_id,
+    isTransfer: isTransfer.value,
+  })
   if (err) {
     editError.value = err
     return
@@ -371,9 +347,9 @@ async function handleDelete() {
   font-weight: 600;
 }
 
-.row-amount--income { color: #16a34a; }
-.row-amount--expense { color: #dc2626; }
-.row-amount--transfer { color: #2563eb; }
+.row-amount--income { color: var(--color-success); }
+.row-amount--expense { color: var(--color-danger); }
+.row-amount--transfer { color: var(--color-info); }
 
 .row-time {
   font-size: 11px;
@@ -451,7 +427,7 @@ async function handleDelete() {
 
 .edit-error {
   font-size: 13px;
-  color: #dc2626;
+  color: var(--color-danger);
   padding: 4px 0;
 }
 
@@ -493,11 +469,11 @@ async function handleDelete() {
 .act-btn--danger-ghost {
   background: transparent;
   border-color: var(--color-border);
-  color: #dc2626;
+  color: var(--color-danger);
 }
 
 .act-btn--danger-ghost:hover:not(:disabled) {
-  border-color: #dc2626;
+  border-color: var(--color-danger);
 }
 
 .act-btn--primary {
@@ -506,11 +482,4 @@ async function handleDelete() {
   flex: 1;
 }
 
-.spin {
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
 </style>

@@ -1,5 +1,6 @@
 import { serverSupabaseUser } from '#supabase/server'
 import type { H3Event } from 'h3'
+import type { TransactionPatchPayload } from '../repositories/transactionRepository'
 import {
   getRecentTransactions,
   getSummaryByDate,
@@ -41,8 +42,11 @@ export async function getSummary(event: H3Event, date: string) {
   return getSummaryByDate(event, date)
 }
 
-export async function listTransactions(event: H3Event, filters: Record<string, unknown>) {
-  return getTransactions(event, filters as Parameters<typeof getTransactions>[1])
+export async function listTransactions(
+  event: H3Event,
+  filters: Parameters<typeof getTransactions>[1],
+) {
+  return getTransactions(event, filters)
 }
 
 export async function addTransaction(
@@ -76,7 +80,7 @@ export async function addTransaction(
 export async function editTransaction(
   event: H3Event,
   id: string,
-  payload: Record<string, unknown>,
+  payload: TransactionPatchPayload,
 ) {
   const authUser = await serverSupabaseUser(event)
   if (!authUser) throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })

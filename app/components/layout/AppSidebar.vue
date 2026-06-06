@@ -44,16 +44,11 @@ const navItems = [
 ]
 
 const route = useRoute()
+const { logout } = useLogout()
 
 function isActive(path: string): boolean {
   if (path === '/dashboard') return route.path === path
   return route.path === path || route.path.startsWith(path + '/')
-}
-
-async function logout() {
-  const supabase = useSupabaseClient()
-  await supabase.auth.signOut()
-  await navigateTo('/login')
 }
 </script>
 

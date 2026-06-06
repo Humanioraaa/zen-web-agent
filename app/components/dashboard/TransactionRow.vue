@@ -99,9 +99,9 @@ const formattedTime = computed(() => {
   font-weight: 600;
 }
 
-.transaction-amount--income  { color: #16a34a; }
-.transaction-amount--expense { color: #dc2626; }
-.transaction-amount--transfer { color: #2563eb; }
+.transaction-amount--income  { color: var(--color-success); }
+.transaction-amount--expense { color: var(--color-danger); }
+.transaction-amount--transfer { color: var(--color-info); }
 
 .transaction-time {
   font-size: 11px;

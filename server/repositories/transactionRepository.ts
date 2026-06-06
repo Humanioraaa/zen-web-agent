@@ -69,7 +69,7 @@ export async function getTransactions(
   if (filters.category_id) query = query.eq('category_id', filters.category_id)
   if (filters.date_from) query = query.gte('date', filters.date_from)
   if (filters.date_to) query = query.lte('date', filters.date_to)
-  if (filters.search) query = query.ilike('note', `%${filters.search}%`)
+  if (filters.search) query = query.ilike('note', `%${escapeLikePattern(filters.search)}%`)
 
   const { data, error, count } = await query
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })
@@ -111,10 +111,19 @@ export async function getTransactionById(event: H3Event, id: string) {
   return data
 }
 
+export interface TransactionPatchPayload {
+  amount?: number
+  wallet_id?: string
+  wallet_to_id?: string | null
+  category_id?: string | null
+  note?: string | null
+  date?: string
+}
+
 export async function updateTransaction(
   event: H3Event,
   id: string,
-  payload: Record<string, unknown>,
+  payload: TransactionPatchPayload,
 ) {
   const client = await serverSupabaseClient(event)
   const { data, error } = await client

@@ -61,18 +61,20 @@
 </template>
 
 <script setup lang="ts">
+import type { Wallet, TransactionRecord } from '~/types/models'
+
 const { formatRupiah } = useFormatRupiah()
 
-const { data: walletsData, pending: walletsPending } = await useFetch('/api/wallets')
-const { data: summaryData, pending: summaryPending } = await useFetch('/api/transactions/summary')
-const { data: recentData, pending: recentPending } = await useFetch('/api/transactions/recent')
+const { data: walletsData, pending: walletsPending } = await useFetch<{ data: Wallet[] }>('/api/wallets')
+const { data: summaryData, pending: summaryPending } = await useFetch<{ data: { income: number; expense: number } }>('/api/transactions/summary')
+const { data: recentData, pending: recentPending } = await useFetch<{ data: TransactionRecord[] }>('/api/transactions/recent')
 
-const wallets = computed(() => (walletsData.value as any)?.data ?? [])
-const summary = computed(() => (summaryData.value as any)?.data ?? null)
-const recentTransactions = computed(() => (recentData.value as any)?.data ?? [])
+const wallets = computed(() => walletsData.value?.data ?? [])
+const summary = computed(() => summaryData.value?.data ?? null)
+const recentTransactions = computed(() => recentData.value?.data ?? [])
 
 const totalBalance = computed(() =>
-  wallets.value.reduce((sum: number, w: any) => sum + Number(w.balance), 0),
+  wallets.value.reduce((sum, w) => sum + Number(w.balance), 0),
 )
 </script>
 
@@ -193,8 +195,4 @@ const totalBalance = computed(() =>
   animation: pulse 1.5s ease-in-out infinite;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
 </style>

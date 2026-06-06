@@ -2,6 +2,10 @@ import { serverSupabaseClient } from '#supabase/server'
 import type { TablesUpdate } from '~/types/database.types'
 import type { H3Event } from 'h3'
 
+export interface UserPatchPayload {
+  telegram_user_id?: string | null
+}
+
 export async function getUserById(event: H3Event, id: string) {
   const client = await serverSupabaseClient(event)
   const { data, error } = await client
@@ -23,7 +27,7 @@ export async function getAllUsers(event: H3Event) {
   return data
 }
 
-export async function updateUser(event: H3Event, id: string, payload: Record<string, unknown>) {
+export async function updateUser(event: H3Event, id: string, payload: UserPatchPayload) {
   const client = await serverSupabaseClient(event)
   const { data, error } = await client
     .from('users')

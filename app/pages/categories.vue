@@ -121,18 +121,12 @@
 <script setup lang="ts">
 import { IconPlus, IconPencil, IconTrash, IconLoader2, IconCheck, IconX } from '@tabler/icons-vue'
 import { useToast } from 'vue-toastification'
-
-interface Category {
-  id: string
-  name: string
-  type: 'income' | 'expense'
-  is_default: boolean
-}
+import type { Category } from '~/types/models'
 
 const toast = useToast()
 
-const { data, pending, refresh } = await useFetch('/api/categories')
-const categories = computed<Category[]>(() => (data.value as any)?.data ?? [])
+const { data, pending, refresh } = await useFetch<{ data: Category[] }>('/api/categories')
+const categories = computed(() => data.value?.data ?? [])
 
 const activeType = ref<'expense' | 'income'>('expense')
 const filtered = computed(() => categories.value.filter((c) => c.type === activeType.value))
@@ -214,8 +208,9 @@ async function confirmDelete() {
     toast.success('Kategori dihapus')
     deleteTarget.value = null
     await refresh()
-  } catch (e: any) {
-    const status = e?.statusCode ?? e?.response?.status
+  } catch (error) {
+    const status = (error as { statusCode?: number; response?: { status?: number } })?.statusCode
+      ?? (error as { response?: { status?: number } })?.response?.status
     if (status === 409) {
       toast.error('Kategori punya transaksi, tidak bisa dihapus')
     } else {
@@ -405,11 +400,11 @@ async function confirmDelete() {
 }
 
 .icon-btn--danger:hover:not(:disabled) {
-  color: #dc2626;
+  color: var(--color-danger);
 }
 
 .icon-btn--primary {
-  color: #16a34a;
+  color: var(--color-success);
 }
 
 .empty-state {
@@ -433,19 +428,6 @@ async function confirmDelete() {
   background: var(--color-bg-subtle);
   border-radius: var(--radius-sm);
   animation: pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-
-.spin {
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 @media (min-width: 640px) {

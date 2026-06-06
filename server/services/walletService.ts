@@ -1,5 +1,6 @@
 import { serverSupabaseUser } from '#supabase/server'
 import type { H3Event } from 'h3'
+import type { WalletPatchPayload } from '../repositories/walletRepository'
 import {
   getAllWallets,
   getWalletById,
@@ -16,7 +17,7 @@ export async function getWallet(event: H3Event, id: string) {
   return getWalletById(event, id)
 }
 
-export async function patchWallet(event: H3Event, id: string, payload: Record<string, unknown>) {
+export async function patchWallet(event: H3Event, id: string, payload: WalletPatchPayload) {
   // Only balance changes are audited; name/is_active edits update without a log.
   if (!('balance' in payload)) {
     return updateWallet(event, id, payload)
@@ -48,7 +49,7 @@ export async function setOpeningBalances(
   if (!authUser)
      throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
 
-  for (const { wallet_id, amount } of balances) {
+  await Promise.all(balances.map(async ({ wallet_id, amount }) => {
     const before = await getWalletById(event, wallet_id)
     const after = await setOpeningBalance(event, wallet_id, amount)
     await createAuditLog(event, {
@@ -59,7 +60,7 @@ export async function setOpeningBalances(
       after: { balance: after.balance },
       performedBy: authUser.id,
     })
-  }
+  }))
 
   return { updated: balances.length }
 }

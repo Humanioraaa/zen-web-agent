@@ -2,7 +2,7 @@ import { patchUser } from '~~/server/services/userService'
 import { ok } from '~~/server/utils/response'
 
 export default defineEventHandler(async (event) => {
-  const id = getRouterParam(event, 'id')!
+  const id = requireIdParam(event)
   const body = (await readBody(event)) ?? {}
 
   // Whitelist: only telegram_user_id is user-editable in MVP.

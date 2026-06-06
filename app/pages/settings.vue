@@ -155,6 +155,7 @@ import {
 } from '@tabler/icons-vue'
 import { useToast } from 'vue-toastification'
 import type { UserProfile } from '~/composables/useCurrentUser'
+import type { Wallet } from '~/types/models'
 
 interface ExportTransaction {
   date: string
@@ -169,24 +170,17 @@ interface ExportTransaction {
   created_by: { name: string } | null
 }
 
-interface Wallet {
-  id: string
-  name: string
-  balance: number
-  is_active: boolean
-}
-
 interface WalletEdit extends Wallet {
   saving: boolean
   _orig: { name: string; balance: number; is_active: boolean }
 }
 
 const toast = useToast()
-const { clearProfile } = useCurrentUser()
+const { logout } = useLogout()
 
 // --- Akun Saya ---
-const { data: meData, pending: mePending } = await useFetch('/api/auth/me')
-const me = computed<UserProfile | null>(() => (meData.value as any)?.data ?? null)
+const { data: meData, pending: mePending, refresh: refreshMe } = await useFetch<{ data: UserProfile }>('/api/auth/me')
+const me = computed(() => meData.value?.data ?? null)
 
 const telegramInput = ref('')
 watchEffect(() => {
@@ -207,9 +201,7 @@ async function saveProfile() {
       body: { telegram_user_id: telegramInput.value.trim() || null },
     })
     toast.success('Profil diperbarui')
-    await refreshUsers()
-    if (meData.value) (meData.value as any).data.telegram_user_id =
-      telegramInput.value.trim() || null
+    await Promise.all([refreshUsers(), refreshMe()])
   } catch {
     toast.error('Gagal memperbarui profil')
   } finally {
@@ -219,15 +211,15 @@ async function saveProfile() {
 
 // --- Tim ---
 const { data: usersData, pending: usersPending, refresh: refreshUsers } =
-  await useFetch('/api/users')
-const users = computed<UserProfile[]>(() => (usersData.value as any)?.data ?? [])
+  await useFetch<{ data: UserProfile[] }>('/api/users')
+const users = computed(() => usersData.value?.data ?? [])
 
 // --- Dompet ---
-const { data: walletsData, pending: walletsPending } = await useFetch('/api/wallets')
+const { data: walletsData, pending: walletsPending } = await useFetch<{ data: Wallet[] }>('/api/wallets')
 const wallets = ref<WalletEdit[]>([])
 
 watchEffect(() => {
-  const list = ((walletsData.value as any)?.data ?? []) as Wallet[]
+  const list = walletsData.value?.data ?? []
   wallets.value = list.map((w) => ({
     ...w,
     balance: Number(w.balance),
@@ -324,13 +316,6 @@ async function exportTransactions() {
   }
 }
 
-// --- Keluar ---
-async function logout() {
-  const supabase = useSupabaseClient()
-  await supabase.auth.signOut()
-  clearProfile()
-  await navigateTo('/login')
-}
 </script>
 
 <style scoped>
@@ -461,7 +446,7 @@ async function logout() {
   width: 100%;
   background: transparent;
   border-color: var(--color-border);
-  color: #dc2626;
+  color: var(--color-danger);
 }
 
 .btn--danger-outline:hover {
@@ -516,7 +501,7 @@ async function logout() {
 }
 
 .tg-status--on {
-  color: #16a34a;
+  color: var(--color-success);
 }
 
 .tg-status--off {
@@ -585,19 +570,6 @@ async function logout() {
   background: var(--color-bg-subtle);
   border-radius: var(--radius-sm);
   animation: pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-
-.spin {
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 @media (min-width: 640px) {
