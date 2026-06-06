@@ -45,6 +45,31 @@ export async function getSummaryByDate(event: H3Event, date: string) {
   return { income, expense, date }
 }
 
+export async function sumByTypeAndDateRange(
+  event: H3Event,
+  dateFrom: string,
+  dateTo: string,
+  client?: SupabaseClient,
+) {
+  const supabase = await resolveClient(event, client)
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('type, amount')
+    .gte('date', dateFrom)
+    .lte('date', dateTo)
+    .in('type', ['income', 'expense'])
+  if (error) throw createError({ statusCode: 500, statusMessage: error.message })
+
+  const income = (data ?? [])
+    .filter(t => t.type === 'income')
+    .reduce((sum, t) => sum + Number(t.amount), 0)
+  const expense = (data ?? [])
+    .filter(t => t.type === 'expense')
+    .reduce((sum, t) => sum + Number(t.amount), 0)
+
+  return { income, expense }
+}
+
 export async function getTransactions(
   event: H3Event,
   filters: {

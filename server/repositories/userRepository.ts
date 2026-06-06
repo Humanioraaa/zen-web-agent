@@ -49,6 +49,16 @@ export async function markOnboardingComplete(event: H3Event, id: string) {
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })
 }
 
+export async function getUsersWithTelegram(event: H3Event, client?: SupabaseClient) {
+  const supabase = client ?? await serverSupabaseClient(event)
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, name, telegram_user_id')
+    .not('telegram_user_id', 'is', null)
+  if (error) throw createError({ statusCode: 500, statusMessage: error.message })
+  return data ?? []
+}
+
 export async function findByTelegramId(event: H3Event, telegramUserId: string, client?: SupabaseClient) {
   const supabase = client ?? await serverSupabaseClient(event)
   const { data, error } = await supabase

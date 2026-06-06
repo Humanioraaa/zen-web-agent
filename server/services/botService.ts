@@ -9,8 +9,10 @@ import {
 import { findByTelegramId } from '~~/server/repositories/userRepository'
 import { getAllWallets, findWalletByName, getWalletById } from '~~/server/repositories/walletRepository'
 import { getCategories, findCategoryByName, getCategoryById, createCategory } from '~~/server/repositories/categoryRepository'
+import { sumByTypeAndDateRange } from '~~/server/repositories/transactionRepository'
 import { findByKeyword, createMemory, incrementCount } from '~~/server/repositories/itemCategoryMemoryRepository'
 import { parseTransaction } from '~~/server/services/geminiService'
+import type { GeminiErrorKind } from '~~/server/services/geminiService'
 import {
   sendMessage,
   editMessage,
@@ -117,6 +119,10 @@ async function handleTextMessage(
   const parsed = await parseTransaction(event, text)
 
   switch (parsed.type) {
+    case 'error':
+      await sendMessage(chatId, geminiErrorMessage(parsed.errorKind))
+      return
+
     case 'unknown':
       await sendMessage(
         chatId,
@@ -441,7 +447,65 @@ async function handleQuery(event: H3Event, chatId: number, text: string): Promis
     return
   }
 
-  await sendMessage(chatId, 'Untuk melihat saldo, ketik "saldo".\nFitur summary akan datang di update berikutnya.')
+  const summaryRange = detectSummaryRange(lower)
+  if (summaryRange) {
+    const { income, expense } = await sumByTypeAndDateRange(event, summaryRange.from, summaryRange.to, client)
+    const profit = income - expense
+    const lines = [
+      `📊 Summary ${summaryRange.label}`,
+      `💰 Pemasukan:   ${formatRupiah(income)}`,
+      `🛒 Pengeluaran: ${formatRupiah(expense)}`,
+      '─────────────────',
+      profit >= 0
+        ? `✅ Profit: ${formatRupiah(profit)}`
+        : `❌ Minus:  ${formatRupiah(Math.abs(profit))}`,
+    ]
+    await sendMessage(chatId, lines.join('\n'))
+    return
+  }
+
+  await sendMessage(chatId, 'Ketik "saldo" untuk cek saldo, atau "pengeluaran hari ini?" untuk summary.')
+}
+
+function detectSummaryRange(text: string): { from: string; to: string; label: string } | null {
+  const today = new Date()
+  const toIso = (d: Date) => d.toISOString().slice(0, 10)
+
+  if (text.includes('hari ini') || text.includes('today')) {
+    const iso = toIso(today)
+    return { from: iso, to: iso, label: 'Hari Ini' }
+  }
+
+  if (text.includes('minggu ini') || text.includes('this week')) {
+    const dayOfWeek = today.getDay()
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+    const monday = new Date(today)
+    monday.setDate(today.getDate() + mondayOffset)
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 6)
+    return { from: toIso(monday), to: toIso(sunday), label: 'Minggu Ini' }
+  }
+
+  if (text.includes('bulan ini') || text.includes('this month')) {
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+    return { from: toIso(firstDay), to: toIso(lastDay), label: 'Bulan Ini' }
+  }
+
+  return null
+}
+
+function geminiErrorMessage(kind?: GeminiErrorKind): string {
+  switch (kind) {
+    case 'rate_limit':
+      return '⚠️ Sistem sibuk. Coba dalam beberapa detik.'
+    case 'network':
+      return '⚠️ Gangguan koneksi. Coba lagi.'
+    case 'parse':
+      return '⚠️ Gagal memproses. Coba lagi.'
+    default:
+      return '⚠️ Ada kesalahan. Coba lagi.'
+  }
 }
 
 async function saveTransactionFromSession(

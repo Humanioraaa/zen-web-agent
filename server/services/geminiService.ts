@@ -2,14 +2,17 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 import { serverSupabaseServiceRole } from '#supabase/server'
 import type { H3Event } from 'h3'
 
+export type GeminiErrorKind = 'network' | 'parse' | 'rate_limit' | 'unknown_error'
+
 export interface GeminiParseResult {
-  type: 'expense' | 'income' | 'transfer' | 'query' | 'unknown'
+  type: 'expense' | 'income' | 'transfer' | 'query' | 'unknown' | 'error'
   amount: number | null
   wallet: string | null
   wallet_to: string | null
   category: string | null
   item: string | null
   confidence: 'high' | 'low'
+  errorKind?: GeminiErrorKind
 }
 
 function buildSystemPrompt(
@@ -73,6 +76,40 @@ function extractJson(text: string): string {
   return text.trim()
 }
 
+const VALID_TYPES = ['expense', 'income', 'transfer', 'query', 'unknown'] as const
+const MAX_RETRIES = 1
+
+function errorResult(kind: GeminiErrorKind): GeminiParseResult {
+  return { type: 'error', amount: null, wallet: null, wallet_to: null, category: null, item: null, confidence: 'low', errorKind: kind }
+}
+
+function isRateLimitError(error: unknown): boolean {
+  if (error instanceof Error && error.message.includes('429')) return true
+  if (typeof error === 'object' && error !== null && 'status' in error && (error as { status: number }).status === 429) return true
+  return false
+}
+
+async function callGemini(
+  model: ReturnType<GoogleGenerativeAI['getGenerativeModel']>,
+  systemPrompt: string,
+  text: string,
+): Promise<GeminiParseResult> {
+  const result = await model.generateContent({
+    systemInstruction: systemPrompt,
+    contents: [{ role: 'user', parts: [{ text }] }],
+  })
+
+  const responseText = result.response.text()
+  const json = extractJson(responseText)
+  const parsed = JSON.parse(json) as GeminiParseResult
+
+  if (!parsed.type || !VALID_TYPES.includes(parsed.type as typeof VALID_TYPES[number])) {
+    return { type: 'unknown', amount: null, wallet: null, wallet_to: null, category: null, item: null, confidence: 'low' }
+  }
+
+  return parsed
+}
+
 export async function parseTransaction(event: H3Event, text: string): Promise<GeminiParseResult> {
   const config = useRuntimeConfig()
   const genAI = new GoogleGenerativeAI(config.geminiApiKey)
@@ -81,23 +118,26 @@ export async function parseTransaction(event: H3Event, text: string): Promise<Ge
   const { walletNames, expenseCategories, incomeCategories } = await loadDynamicPromptData(event)
   const systemPrompt = buildSystemPrompt(walletNames, expenseCategories, incomeCategories)
 
-  try {
-    const result = await model.generateContent({
-      systemInstruction: systemPrompt,
-      contents: [{ role: 'user', parts: [{ text }] }],
-    })
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await callGemini(model, systemPrompt, text)
+    } catch (error) {
+      if (isRateLimitError(error)) {
+        console.error('Gemini rate limit hit')
+        return errorResult('rate_limit')
+      }
 
-    const responseText = result.response.text()
-    const json = extractJson(responseText)
-    const parsed = JSON.parse(json) as GeminiParseResult
+      const isLastAttempt = attempt === MAX_RETRIES
+      if (isLastAttempt) {
+        console.error('Gemini parse error (final attempt):', error)
+        if (error instanceof SyntaxError) return errorResult('parse')
+        if (error instanceof TypeError || (error instanceof Error && error.message.includes('fetch'))) return errorResult('network')
+        return errorResult('unknown_error')
+      }
 
-    if (!parsed.type || !['expense', 'income', 'transfer', 'query', 'unknown'].includes(parsed.type)) {
-      return { type: 'unknown', amount: null, wallet: null, wallet_to: null, category: null, item: null, confidence: 'low' }
+      console.warn(`Gemini attempt ${attempt + 1} failed, retrying...`)
     }
-
-    return parsed
-  } catch (error) {
-    console.error('Gemini parse error:', error)
-    return { type: 'unknown', amount: null, wallet: null, wallet_to: null, category: null, item: null, confidence: 'low' }
   }
+
+  return errorResult('unknown_error')
 }
