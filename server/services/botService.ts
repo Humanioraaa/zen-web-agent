@@ -8,7 +8,8 @@ import {
 } from '~~/server/repositories/botSessionRepository'
 import { findByTelegramId } from '~~/server/repositories/userRepository'
 import { getAllWallets, findWalletByName, getWalletById } from '~~/server/repositories/walletRepository'
-import { getCategories, findCategoryByName, getCategoryById } from '~~/server/repositories/categoryRepository'
+import { getCategories, findCategoryByName, getCategoryById, createCategory } from '~~/server/repositories/categoryRepository'
+import { findByKeyword, createMemory, incrementCount } from '~~/server/repositories/itemCategoryMemoryRepository'
 import { parseTransaction } from '~~/server/services/geminiService'
 import {
   sendMessage,
@@ -107,6 +108,12 @@ async function handleTextMessage(
     return
   }
 
+  const categoryMatch = text.match(/^kategori\s+(pengeluaran\s+|pemasukan\s+)?baru[:\s]+(.+)$/i)
+  if (categoryMatch) {
+    await handleAddCategory(event, chatId, categoryMatch)
+    return
+  }
+
   const parsed = await parseTransaction(event, text)
 
   switch (parsed.type) {
@@ -182,6 +189,13 @@ async function handleTransactionInput(
     if (parsed.category) {
       const categoryRecord = await findCategoryByName(event, parsed.category, parsed.type, client)
       categoryId = categoryRecord?.id ?? null
+    }
+
+    if (!categoryId && parsed.item) {
+      const learned = await checkSmartLearning(event, parsed.item)
+      if (learned) {
+        categoryId = learned.category_id
+      }
     }
 
     if (!categoryId) {
@@ -301,6 +315,9 @@ async function handleCallbackQuery(
     const categoryId = callbackData.replace('category_', '')
     if (session.context) {
       session.context.category_id = categoryId
+      if (session.context.item) {
+        await updateSmartLearning(event, session.context.item, categoryId, session.context.wallet_id)
+      }
     }
     session.state = 'AWAITING_CONFIRMATION'
     await saveSession(event, session)
@@ -446,6 +463,10 @@ async function saveTransactionFromSession(
     created_by: user.id,
     source: 'telegram',
   })
+
+  if (context.item && context.category_id) {
+    await updateSmartLearning(event, context.item, context.category_id, context.wallet_id)
+  }
 }
 
 async function sendConfirmationMessage(
@@ -495,6 +516,55 @@ async function buildConfirmationText(event: H3Event, context: BotSessionContext)
   }
 
   return text
+}
+
+async function handleAddCategory(
+  event: H3Event,
+  chatId: number,
+  match: RegExpMatchArray,
+): Promise<void> {
+  const client = serverSupabaseServiceRole(event)
+  const typeRaw = match[1]?.trim().toLowerCase()
+  const name = match[2]!.trim()
+  const type = typeRaw?.startsWith('pemasukan') ? 'income' : 'expense'
+
+  const existing = await findCategoryByName(event, name, type, client)
+  if (existing) {
+    const label = type === 'income' ? 'Pemasukan' : 'Pengeluaran'
+    await sendMessage(chatId, `⚠️ Kategori "${existing.name}" sudah ada di ${label}.`)
+    return
+  }
+
+  await createCategory(event, { name, type }, client)
+  const label = type === 'income' ? 'Pemasukan' : 'Pengeluaran'
+  await sendMessage(chatId, `✅ Kategori "${name}" ditambahkan ke ${label}.`)
+}
+
+async function checkSmartLearning(
+  event: H3Event,
+  item: string,
+): Promise<{ category_id: string; wallet_id: string | null } | null> {
+  const memory = await findByKeyword(event, item)
+  if (memory && memory.confirmed_count >= 2) {
+    return { category_id: memory.category_id, wallet_id: memory.wallet_id }
+  }
+  return null
+}
+
+async function updateSmartLearning(
+  event: H3Event,
+  item: string | null,
+  categoryId: string,
+  walletId?: string | null,
+): Promise<void> {
+  if (!item) return
+  const keyword = item.trim().toLowerCase()
+  const existing = await findByKeyword(event, keyword)
+  if (existing) {
+    await incrementCount(event, existing.id)
+  } else {
+    await createMemory(event, { keyword, category_id: categoryId, wallet_id: walletId ?? null })
+  }
 }
 
 function buildContext(

@@ -42,9 +42,10 @@ export async function getCategoryById(event: H3Event, id: string, client?: Supab
 export async function createCategory(
   event: H3Event,
   payload: { name: string; type: string },
+  client?: SupabaseClient,
 ) {
-  const client = await serverSupabaseClient(event)
-  const { data, error } = await client
+  const supabase = await resolveClient(event, client)
+  const { data, error } = await supabase
     .from('categories')
     .insert(payload as TablesInsert<'categories'>)
     .select()
