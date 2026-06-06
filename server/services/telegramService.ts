@@ -1,0 +1,82 @@
+export interface InlineKeyboardButton {
+  text: string
+  callback_data: string
+}
+
+type InlineKeyboard = InlineKeyboardButton[][]
+
+function buildApiUrl(method: string): string {
+  const token = useRuntimeConfig().telegramBotToken
+  return `https://api.telegram.org/bot${token}/${method}`
+}
+
+export async function sendMessage(
+  chatId: number | string,
+  text: string,
+  keyboard?: InlineKeyboard,
+): Promise<void> {
+  await $fetch(buildApiUrl('sendMessage'), {
+    method: 'POST',
+    body: {
+      chat_id: chatId,
+      text,
+      parse_mode: 'HTML',
+      ...(keyboard && {
+        reply_markup: { inline_keyboard: keyboard },
+      }),
+    },
+  })
+}
+
+export async function editMessage(
+  chatId: number | string,
+  messageId: number,
+  text: string,
+  keyboard?: InlineKeyboard,
+): Promise<void> {
+  await $fetch(buildApiUrl('editMessageText'), {
+    method: 'POST',
+    body: {
+      chat_id: chatId,
+      message_id: messageId,
+      text,
+      parse_mode: 'HTML',
+      ...(keyboard && {
+        reply_markup: { inline_keyboard: keyboard },
+      }),
+    },
+  })
+}
+
+export async function answerCallbackQuery(callbackQueryId: string): Promise<void> {
+  await $fetch(buildApiUrl('answerCallbackQuery'), {
+    method: 'POST',
+    body: { callback_query_id: callbackQueryId },
+  })
+}
+
+export function confirmationKeyboard(): InlineKeyboard {
+  return [
+    [
+      { text: '✅ Ya', callback_data: 'confirm_yes' },
+      { text: '✏️ Edit', callback_data: 'confirm_edit' },
+      { text: '❌ Batal', callback_data: 'confirm_cancel' },
+    ],
+  ]
+}
+
+export function categoryKeyboard(categories: { id: string; name: string }[]): InlineKeyboard {
+  const rows: InlineKeyboard = []
+  for (let i = 0; i < categories.length; i += 2) {
+    const current = categories[i]!
+    const next = categories[i + 1]
+    const row: InlineKeyboardButton[] = [
+      { text: current.name, callback_data: `category_${current.id}` },
+    ]
+    if (next) {
+      row.push({ text: next.name, callback_data: `category_${next.id}` })
+    }
+    rows.push(row)
+  }
+  return rows
+}

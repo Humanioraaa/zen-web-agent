@@ -1,19 +1,36 @@
 import { serverSupabaseClient } from '#supabase/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Enums, TablesInsert } from '~/types/database.types'
 import type { H3Event } from 'h3'
 
-export async function getCategories(event: H3Event, type?: string) {
-  const client = await serverSupabaseClient(event)
-  let query = client.from('categories').select('id, name, type, is_default').order('name')
+async function resolveClient(event: H3Event, client?: SupabaseClient) {
+  return client ?? await serverSupabaseClient(event)
+}
+
+export async function getCategories(event: H3Event, type?: string, client?: SupabaseClient) {
+  const supabase = await resolveClient(event, client)
+  let query = supabase.from('categories').select('id, name, type, is_default').order('name')
   if (type) query = query.eq('type', type as Enums<'category_type'>)
   const { data, error } = await query
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })
   return data
 }
 
-export async function getCategoryById(event: H3Event, id: string) {
-  const client = await serverSupabaseClient(event)
-  const { data, error } = await client
+export async function findCategoryByName(event: H3Event, name: string, type?: string, client?: SupabaseClient) {
+  const supabase = await resolveClient(event, client)
+  let query = supabase
+    .from('categories')
+    .select('id, name, type, is_default')
+    .ilike('name', name)
+  if (type) query = query.eq('type', type as Enums<'category_type'>)
+  const { data, error } = await query.limit(1).single()
+  if (error) return null
+  return data
+}
+
+export async function getCategoryById(event: H3Event, id: string, client?: SupabaseClient) {
+  const supabase = await resolveClient(event, client)
+  const { data, error } = await supabase
     .from('categories')
     .select('id, name, type, is_default')
     .eq('id', id)

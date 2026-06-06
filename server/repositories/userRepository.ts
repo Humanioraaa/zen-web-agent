@@ -1,4 +1,5 @@
 import { serverSupabaseClient } from '#supabase/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { TablesUpdate } from '~/types/database.types'
 import type { H3Event } from 'h3'
 
@@ -46,4 +47,15 @@ export async function markOnboardingComplete(event: H3Event, id: string) {
     .update({ onboarding_completed: true })
     .eq('id', id)
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })
+}
+
+export async function findByTelegramId(event: H3Event, telegramUserId: string, client?: SupabaseClient) {
+  const supabase = client ?? await serverSupabaseClient(event)
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, email, name, telegram_user_id, onboarding_completed')
+    .eq('telegram_user_id', telegramUserId)
+    .single()
+  if (error) return null
+  return data
 }

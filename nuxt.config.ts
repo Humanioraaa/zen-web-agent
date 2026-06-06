@@ -57,5 +57,7 @@ export default defineNuxtConfig({
     geminiApiKey: process.env.GEMINI_API_KEY ?? '',
     telegramBotToken: process.env.TELEGRAM_BOT_TOKEN ?? '',
     botPin: process.env.BOT_PIN ?? '',
+    cronSecret: process.env.CRON_SECRET ?? '',
+    supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? '',
   },
 })

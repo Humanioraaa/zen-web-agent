@@ -1,4 +1,6 @@
 import { serverSupabaseUser } from '#supabase/server'
+import { serverSupabaseServiceRole } from '#supabase/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { H3Event } from 'h3'
 import type { TransactionPatchPayload } from '../repositories/transactionRepository'
 import {
@@ -20,17 +22,15 @@ type BalanceTx = {
   wallet_to_id?: string | null
 }
 
-// Applies (direction = 1) or reverses (direction = -1) a transaction's effect on wallet balances.
-// expense: source -amount | income: source +amount | transfer: source -amount, dest +amount
-async function applyBalanceEffect(event: H3Event, tx: BalanceTx, direction: 1 | -1) {
+async function applyBalanceEffect(event: H3Event, tx: BalanceTx, direction: 1 | -1, client?: SupabaseClient) {
   const amt = Number(tx.amount) * direction
   if (tx.type === 'expense') {
-    await adjustWalletBalance(event, tx.wallet_id, -amt)
+    await adjustWalletBalance(event, tx.wallet_id, -amt, client)
   } else if (tx.type === 'income') {
-    await adjustWalletBalance(event, tx.wallet_id, amt)
+    await adjustWalletBalance(event, tx.wallet_id, amt, client)
   } else if (tx.type === 'transfer' && tx.wallet_to_id) {
-    await adjustWalletBalance(event, tx.wallet_id, -amt)
-    await adjustWalletBalance(event, tx.wallet_to_id, amt)
+    await adjustWalletBalance(event, tx.wallet_id, -amt, client)
+    await adjustWalletBalance(event, tx.wallet_to_id, amt, client)
   }
 }
 
@@ -60,19 +60,29 @@ export async function addTransaction(
     note?: string
     date?: string
     source?: 'web' | 'telegram'
+    created_by?: string
   },
 ) {
-  const authUser = await serverSupabaseUser(event)
-  if (!authUser) throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+  let createdBy: string
+  let client: SupabaseClient | undefined
+
+  if (payload.created_by) {
+    createdBy = payload.created_by
+    client = serverSupabaseServiceRole(event)
+  } else {
+    const authUser = await serverSupabaseUser(event)
+    if (!authUser) throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+    createdBy = authUser.sub
+  }
 
   const transaction = await createTransaction(event, {
     ...payload,
-    created_by: authUser.id,
+    created_by: createdBy,
     source: payload.source ?? 'web',
-    date: payload.date ?? new Date().toISOString().split('T')[0],
-  })
+    date: payload.date ?? new Date().toISOString().slice(0, 10),
+  }, client)
 
-  await applyBalanceEffect(event, payload, 1)
+  await applyBalanceEffect(event, payload, 1, client)
 
   return transaction
 }
@@ -97,7 +107,7 @@ export async function editTransaction(
     action: 'update',
     before,
     after,
-    performedBy: authUser.id,
+    performedBy: authUser.sub,
   })
 
   return after
@@ -116,7 +126,7 @@ export async function removeTransaction(event: H3Event, id: string) {
     entityId: id,
     action: 'delete',
     before: transaction,
-    performedBy: authUser.id,
+    performedBy: authUser.sub,
   })
 
   await deleteTransaction(event, id)

@@ -1,6 +1,11 @@
 import { serverSupabaseClient } from '#supabase/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Enums, TablesInsert, TablesUpdate } from '~/types/database.types'
 import type { H3Event } from 'h3'
+
+async function resolveClient(event: H3Event, client?: SupabaseClient) {
+  return client ?? await serverSupabaseClient(event)
+}
 
 const TRANSACTION_SELECT = `
   *,
@@ -89,9 +94,10 @@ export async function createTransaction(
     source?: string
     created_by: string
   },
+  client?: SupabaseClient,
 ) {
-  const client = await serverSupabaseClient(event)
-  const { data, error } = await client
+  const supabase = await resolveClient(event, client)
+  const { data, error } = await supabase
     .from('transactions')
     .insert(payload as TablesInsert<'transactions'>)
     .select()

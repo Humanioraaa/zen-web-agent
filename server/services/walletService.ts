@@ -35,7 +35,7 @@ export async function patchWallet(event: H3Event, id: string, payload: WalletPat
     action: 'update',
     before: { balance: before.balance },
     after: { balance: updated.balance },
-    performedBy: authUser.id,
+    performedBy: authUser.sub,
   })
 
   return updated
@@ -58,7 +58,7 @@ export async function setOpeningBalances(
       action: 'update',
       before: { balance: before.balance },
       after: { balance: after.balance },
-      performedBy: authUser.id,
+      performedBy: authUser.sub,
     })
   }))
 

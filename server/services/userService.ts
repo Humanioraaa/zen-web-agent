@@ -12,7 +12,7 @@ export async function getCurrentUser(event: H3Event) {
   const authUser = await serverSupabaseUser(event)
   if (!authUser)
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
-  return getUserById(event, authUser.id)
+  return getUserById(event, authUser.sub)
 }
 
 export async function getUsers(event: H3Event) {
@@ -27,7 +27,7 @@ export async function patchUser(
   const authUser = await serverSupabaseUser(event)
   if (!authUser)
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
-  if (authUser.id !== id)
+  if (authUser.sub !== id)
     throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
   return updateUser(event, id, payload)
 }
@@ -36,5 +36,5 @@ export async function completeOnboarding(event: H3Event) {
   const authUser = await serverSupabaseUser(event)
   if (!authUser)
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
-  await markOnboardingComplete(event, authUser.id)
+  await markOnboardingComplete(event, authUser.sub)
 }
