@@ -8,6 +8,7 @@ export type BotState =
   | 'AWAITING_EDIT_VALUE'
   | 'AWAITING_PIN'
   | 'AWAITING_CATEGORY_SELECTION'
+  | 'AWAITING_SMART_CONFIRM'
 
 export interface BotSessionContext {
   type: 'expense' | 'income' | 'transfer'

@@ -36,6 +36,20 @@ Rules:
 - "listrik", "air", "internet", "sewa" → Operasional
 - If message is a question about balance or summary, return type: "query"
 - If message cannot be understood, return type: "unknown"
+- Category matching is case-insensitive: "bahan baku bar" = "Bahan Baku Bar"
+
+IMPORTANT — Item name normalization:
+Always normalize item names to a single canonical Indonesian form. Synonyms, abbreviations, and mixed-language terms for the same product MUST return the same item string:
+- milk, susu → "susu"
+- evap, evaporasi, susu evaporasi → "susu evaporasi"
+- gula pasir, gula → "gula"
+- kopi, coffee → "kopi"
+- sedotan, straw → "sedotan"
+- cup, gelas → "cup"
+- mentega, butter → "mentega"
+- tepung, flour → "tepung"
+- es, ice → "es"
+Use consistent lowercase for the "item" field. If two different spellings or languages refer to the same product, always return the same canonical item name.
 
 Return ONLY a valid JSON object, no explanation.
 

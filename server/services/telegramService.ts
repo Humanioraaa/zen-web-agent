@@ -65,6 +65,15 @@ export function confirmationKeyboard(): InlineKeyboard {
   ]
 }
 
+export function smartConfirmKeyboard(categoryName: string): InlineKeyboard {
+  return [
+    [
+      { text: `✅ Ya, ${categoryName}`, callback_data: 'smart_confirm_yes' },
+      { text: '🔄 Pilih lain', callback_data: 'smart_choose_other' },
+    ],
+  ]
+}
+
 export function categoryKeyboard(categories: { id: string; name: string }[]): InlineKeyboard {
   const rows: InlineKeyboard = []
   for (let i = 0; i < categories.length; i += 2) {

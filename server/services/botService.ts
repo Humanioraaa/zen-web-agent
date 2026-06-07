@@ -19,10 +19,32 @@ import {
   answerCallbackQuery,
   confirmationKeyboard,
   categoryKeyboard,
+  smartConfirmKeyboard,
 } from '~~/server/services/telegramService'
 import { addTransaction } from '~~/server/services/transactionService'
 import { formatRupiah } from '~~/server/utils/formatRupiah'
 import { parseAmount } from '~~/server/utils/parseAmount'
+
+const HELP_TEXT = `📖 <b>Panduan Bot Zen Coffee</b>
+
+📝 <b>Input Transaksi:</b>
+• beli gula 15k
+• gopay masuk 150k
+• pindah cash ke rekening 500k
+
+📊 <b>Query:</b>
+• saldo
+• pengeluaran hari ini?
+• pemasukan bulan ini?
+
+⚙️ <b>Lainnya:</b>
+• kategori baru: Packaging
+• kategori pemasukan baru: Tips
+
+💡 <b>Tips:</b>
+• Nominal: 15k, 150rb, 1jt
+• PIN diperlukan untuk transaksi >Rp500.000
+• /help — tampilkan panduan ini`
 
 interface TelegramUpdate {
   message?: {
@@ -89,6 +111,11 @@ async function handleTextMessage(
   chatId: number,
   text: string,
 ): Promise<void> {
+  if (text === '/help' || text === '/start') {
+    await sendMessage(chatId, HELP_TEXT)
+    return
+  }
+
   if (session.state === 'AWAITING_PIN') {
     await handlePinInput(event, user, session, chatId, text)
     return
@@ -105,7 +132,18 @@ async function handleTextMessage(
       '⚠️ Kamu masih punya transaksi yang belum selesai. Selesaikan dulu atau tap Batal.',
     )
     if (session.context) {
-      await sendConfirmationMessage(event, chatId, session.context)
+      if (session.state === 'AWAITING_SMART_CONFIRM' && session.context.category_id) {
+        const client = serverSupabaseServiceRole(event)
+        const categoryRecord = await getCategoryById(event, session.context.category_id, client)
+        const label = session.context.item ?? 'item ini'
+        await sendMessage(
+          chatId,
+          `Masukkan "${label}" ke kategori ${categoryRecord.name}?`,
+          smartConfirmKeyboard(categoryRecord.name),
+        )
+      } else {
+        await sendConfirmationMessage(event, chatId, session.context)
+      }
     }
     return
   }
@@ -200,7 +238,17 @@ async function handleTransactionInput(
     if (!categoryId && parsed.item) {
       const learned = await checkSmartLearning(event, parsed.item)
       if (learned) {
-        categoryId = learned.category_id
+        const categoryRecord = await getCategoryById(event, learned.category_id, client)
+        session.state = 'AWAITING_SMART_CONFIRM'
+        session.context = buildContext(parsed, walletId, walletToId, learned.category_id)
+        await saveSession(event, session)
+        const label = parsed.item ?? 'item ini'
+        await sendMessage(
+          chatId,
+          `Masukkan "${label}" ke kategori ${categoryRecord.name}?`,
+          smartConfirmKeyboard(categoryRecord.name),
+        )
+        return
       }
     }
 
@@ -314,6 +362,28 @@ async function handleCallbackQuery(
     }
     await saveSession(event, session)
     await sendMessage(chatId, `Masukkan ${fieldLabels[field] ?? field} baru:`)
+    return
+  }
+
+  if (callbackData === 'smart_confirm_yes' && session.state === 'AWAITING_SMART_CONFIRM') {
+    session.state = 'AWAITING_CONFIRMATION'
+    await saveSession(event, session)
+    if (session.context) {
+      await editConfirmationMessage(event, chatId, messageId, session.context)
+    }
+    return
+  }
+
+  if (callbackData === 'smart_choose_other' && session.state === 'AWAITING_SMART_CONFIRM') {
+    const client = serverSupabaseServiceRole(event)
+    if (session.context) {
+      session.context.category_id = null
+      const categories = await getCategories(event, session.context.type, client)
+      session.state = 'AWAITING_CATEGORY_SELECTION'
+      await saveSession(event, session)
+      const label = session.context.item ?? 'transaksi ini'
+      await editMessage(chatId, messageId, `Pilih kategori untuk "${label}":`, categoryKeyboard(categories))
+    }
     return
   }
 
