@@ -131,16 +131,13 @@ const categories = computed(() => data.value?.data ?? [])
 const activeType = ref<'expense' | 'income'>('expense')
 const filtered = computed(() => categories.value.filter((c) => c.type === activeType.value))
 
-// Add
 const newName = ref('')
 const adding = ref(false)
 
-// Edit
 const editingId = ref<string | null>(null)
 const editName = ref('')
 const savingEdit = ref(false)
 
-// Delete
 const deleteTarget = ref<Category | null>(null)
 const deleting = ref(false)
 

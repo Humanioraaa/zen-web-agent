@@ -141,7 +141,6 @@ function loadMore() {
   load(false)
 }
 
-// re-fetch from the start (after edit/delete)
 function reload() {
   load(true)
 }
@@ -155,7 +154,6 @@ function formatDateHeader(d: string) {
   })
 }
 
-// debounced refetch on filter change
 let debounce: ReturnType<typeof setTimeout>
 watch(
   filters,
@@ -167,6 +165,7 @@ watch(
 )
 
 onMounted(() => load(true))
+onUnmounted(() => clearTimeout(debounce))
 </script>
 
 <style scoped>

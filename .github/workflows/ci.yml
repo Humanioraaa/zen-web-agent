@@ -1,0 +1,31 @@
+name: CI
+
+# Build gate — runs on every push and PR to the production branch.
+# Vercel still performs the actual deploy; this fails fast if the build breaks.
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build
+        run: yarn build
+        env:
+          # Placeholder values so the Supabase module initializes during build.
+          # No real connection is made at build time — these are never used at runtime.
+          SUPABASE_URL: https://placeholder.supabase.co
+          SUPABASE_KEY: placeholder-anon-key

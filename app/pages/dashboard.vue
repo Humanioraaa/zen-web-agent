@@ -74,7 +74,7 @@ const summary = computed(() => summaryData.value?.data ?? null)
 const recentTransactions = computed(() => recentData.value?.data ?? [])
 
 const totalBalance = computed(() =>
-  wallets.value.reduce((sum, w) => sum + Number(w.balance), 0),
+  wallets.value.reduce((sum, w) => sum + w.balance, 0),
 )
 </script>
 

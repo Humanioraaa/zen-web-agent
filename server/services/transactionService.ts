@@ -15,22 +15,31 @@ import {
 import { adjustWalletBalance } from '../repositories/walletRepository'
 import { createAuditLog } from '../repositories/auditLogRepository'
 
-type BalanceTx = {
+interface BalanceEffect {
   type: string
-  amount: number | string
+  amount: number
   wallet_id: string
   wallet_to_id?: string | null
 }
 
-async function applyBalanceEffect(event: H3Event, tx: BalanceTx, direction: 1 | -1, client?: SupabaseClient) {
-  const amt = Number(tx.amount) * direction
+async function applyBalanceEffect(event: H3Event, tx: BalanceEffect, direction: 1 | -1, client?: SupabaseClient) {
+  const delta = tx.amount * direction
   if (tx.type === 'expense') {
-    await adjustWalletBalance(event, tx.wallet_id, -amt, client)
+    await adjustWalletBalance(event, tx.wallet_id, -delta, client)
   } else if (tx.type === 'income') {
-    await adjustWalletBalance(event, tx.wallet_id, amt, client)
+    await adjustWalletBalance(event, tx.wallet_id, delta, client)
   } else if (tx.type === 'transfer' && tx.wallet_to_id) {
-    await adjustWalletBalance(event, tx.wallet_id, -amt, client)
-    await adjustWalletBalance(event, tx.wallet_to_id, amt, client)
+    await adjustWalletBalance(event, tx.wallet_id, -delta, client)
+    await adjustWalletBalance(event, tx.wallet_to_id, delta, client)
+  }
+}
+
+function extractBalanceEffect(tx: { type: string; amount: number; wallet_id: string; wallet_to_id?: string | null }): BalanceEffect {
+  return {
+    type: tx.type,
+    amount: tx.amount,
+    wallet_id: tx.wallet_id,
+    wallet_to_id: tx.wallet_to_id,
   }
 }
 
@@ -96,10 +105,9 @@ export async function editTransaction(
   if (!authUser) throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
 
   const before = await getTransactionById(event, id)
-  // reverse the original balance effect, then apply the updated one
-  await applyBalanceEffect(event, before as unknown as BalanceTx, -1)
+  await applyBalanceEffect(event, extractBalanceEffect(before), -1)
   const after = await updateTransaction(event, id, payload)
-  await applyBalanceEffect(event, after as unknown as BalanceTx, 1)
+  await applyBalanceEffect(event, extractBalanceEffect(after), 1)
 
   await createAuditLog(event, {
     entityType: 'transaction',
@@ -119,7 +127,7 @@ export async function removeTransaction(event: H3Event, id: string) {
 
   const transaction = await getTransactionById(event, id)
 
-  await applyBalanceEffect(event, transaction as unknown as BalanceTx, -1)
+  await applyBalanceEffect(event, extractBalanceEffect(transaction), -1)
 
   await createAuditLog(event, {
     entityType: 'transaction',

@@ -15,7 +15,7 @@ export interface Category {
 export interface TransactionRecord {
   id: string
   type: 'income' | 'expense' | 'transfer'
-  amount: number | string
+  amount: number
   wallet_id: string
   wallet_to_id: string | null
   category_id: string | null

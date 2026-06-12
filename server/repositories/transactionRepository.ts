@@ -7,6 +7,10 @@ async function resolveClient(event: H3Event, client?: SupabaseClient) {
   return client ?? await serverSupabaseClient(event)
 }
 
+function normalizeAmount<T extends { amount: unknown }>(row: T): T & { amount: number } {
+  return { ...row, amount: Number(row.amount) }
+}
+
 const TRANSACTION_SELECT = `
   *,
   wallet:wallets!wallet_id(id, name),
@@ -23,7 +27,7 @@ export async function getRecentTransactions(event: H3Event, limit: number) {
     .order('created_at', { ascending: false })
     .limit(limit)
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })
-  return data
+  return data.map(normalizeAmount)
 }
 
 export async function getSummaryByDate(event: H3Event, date: string) {
@@ -103,7 +107,7 @@ export async function getTransactions(
 
   const { data, error, count } = await query
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })
-  return { data: data ?? [], total: count ?? 0 }
+  return { data: (data ?? []).map(normalizeAmount), total: count ?? 0 }
 }
 
 export async function createTransaction(
@@ -128,7 +132,7 @@ export async function createTransaction(
     .select()
     .single()
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })
-  return data
+  return normalizeAmount(data)
 }
 
 export async function getTransactionById(event: H3Event, id: string) {
@@ -139,7 +143,7 @@ export async function getTransactionById(event: H3Event, id: string) {
     .eq('id', id)
     .single()
   if (error) throw createError({ statusCode: 404, statusMessage: 'Transaction not found' })
-  return data
+  return normalizeAmount(data)
 }
 
 export interface TransactionPatchPayload {
@@ -164,7 +168,7 @@ export async function updateTransaction(
     .select(TRANSACTION_SELECT)
     .single()
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })
-  return data
+  return normalizeAmount(data)
 }
 
 export async function deleteTransaction(event: H3Event, id: string) {

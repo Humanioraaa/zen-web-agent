@@ -76,7 +76,7 @@ export async function deleteCategory(event: H3Event, id: string) {
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })
 }
 
-// Count transactions referencing a category — used to block deletion of in-use categories.
+// Blocks deletion of in-use categories
 export async function countCategoryTransactions(event: H3Event, id: string): Promise<number> {
   const client = await serverSupabaseClient(event)
   const { count, error } = await client

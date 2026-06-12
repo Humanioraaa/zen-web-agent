@@ -1,6 +1,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { serverSupabaseServiceRole } from '#supabase/server'
 import type { H3Event } from 'h3'
+import { getAllWallets } from '~~/server/repositories/walletRepository'
+import { getCategories } from '~~/server/repositories/categoryRepository'
 
 export type GeminiErrorKind = 'network' | 'parse' | 'rate_limit' | 'unknown_error'
 
@@ -68,20 +70,17 @@ Response format:
 async function loadDynamicPromptData(event: H3Event) {
   const client = serverSupabaseServiceRole(event)
 
-  const [walletsResult, categoriesResult] = await Promise.all([
-    client.from('wallets').select('name').eq('is_active', true).order('name'),
-    client.from('categories').select('name, type').order('name'),
+  const [wallets, expenseCats, incomeCats] = await Promise.all([
+    getAllWallets(event, client),
+    getCategories(event, 'expense', client),
+    getCategories(event, 'income', client),
   ])
 
-  const walletNames = (walletsResult.data ?? []).map(w => w.name)
-  const expenseCategories = (categoriesResult.data ?? [])
-    .filter(c => c.type === 'expense')
-    .map(c => c.name)
-  const incomeCategories = (categoriesResult.data ?? [])
-    .filter(c => c.type === 'income')
-    .map(c => c.name)
-
-  return { walletNames, expenseCategories, incomeCategories }
+  return {
+    walletNames: wallets.map(w => w.name),
+    expenseCategories: expenseCats.map(c => c.name),
+    incomeCategories: incomeCats.map(c => c.name),
+  }
 }
 
 function extractJson(text: string): string {

@@ -1,4 +1,4 @@
-import { handleUpdate } from '~~/server/services/botService'
+import { handleUpdate } from '~~/server/services/bot'
 
 export default defineEventHandler(async (event) => {
   try {

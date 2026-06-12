@@ -13,6 +13,10 @@ async function resolveClient(event: H3Event, client?: SupabaseClient) {
   return client ?? await serverSupabaseClient(event)
 }
 
+function normalizeBalance<T extends { balance: unknown }>(row: T): T & { balance: number } {
+  return { ...row, balance: Number(row.balance) }
+}
+
 export async function getAllWallets(event: H3Event, client?: SupabaseClient) {
   const supabase = await resolveClient(event, client)
   const { data, error } = await supabase
@@ -21,7 +25,7 @@ export async function getAllWallets(event: H3Event, client?: SupabaseClient) {
     .eq('is_active', true)
     .order('name')
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })
-  return data
+  return data.map(normalizeBalance)
 }
 
 export async function getWalletById(event: H3Event, id: string, client?: SupabaseClient) {
@@ -32,7 +36,7 @@ export async function getWalletById(event: H3Event, id: string, client?: Supabas
     .eq('id', id)
     .single()
   if (error) throw createError({ statusCode: 404, statusMessage: 'Wallet not found' })
-  return data
+  return normalizeBalance(data)
 }
 
 export async function findWalletByName(event: H3Event, name: string, client?: SupabaseClient) {
@@ -44,7 +48,7 @@ export async function findWalletByName(event: H3Event, name: string, client?: Su
     .eq('is_active', true)
     .single()
   if (error) return null
-  return data
+  return normalizeBalance(data)
 }
 
 export async function updateWallet(event: H3Event, id: string, payload: WalletPatchPayload) {
@@ -56,7 +60,7 @@ export async function updateWallet(event: H3Event, id: string, payload: WalletPa
     .select()
     .single()
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })
-  return data
+  return normalizeBalance(data)
 }
 
 export async function setOpeningBalance(event: H3Event, id: string, amount: number) {
@@ -68,7 +72,7 @@ export async function setOpeningBalance(event: H3Event, id: string, amount: numb
     .select()
     .single()
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })
-  return data
+  return normalizeBalance(data)
 }
 
 // Read-then-write: not atomic under concurrent requests.
@@ -82,12 +86,13 @@ export async function adjustWalletBalance(event: H3Event, id: string, delta: num
     .single()
   if (fetchError) throw createError({ statusCode: 404, statusMessage: 'Wallet not found' })
 
+  const newBalance = Number(wallet.balance) + delta
   const { data, error } = await supabase
     .from('wallets')
-    .update({ balance: Number(wallet.balance) + delta })
+    .update({ balance: newBalance })
     .eq('id', id)
     .select()
     .single()
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })
-  return data
+  return normalizeBalance(data)
 }

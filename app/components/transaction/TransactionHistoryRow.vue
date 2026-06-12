@@ -8,7 +8,7 @@
       </div>
       <div class="row-right">
         <span :class="['row-amount', `row-amount--${transaction.type}`]">
-          {{ amountPrefix }}{{ formatRupiah(Number(transaction.amount)) }}
+          {{ amountPrefix }}{{ formatRupiah(transaction.amount) }}
         </span>
         <span class="row-time">{{ time }}</span>
       </div>
@@ -87,7 +87,7 @@
           </div>
           <div class="detail-item">
             <dt>Nominal</dt>
-            <dd>{{ formatRupiah(Number(transaction.amount)) }}</dd>
+            <dd>{{ formatRupiah(transaction.amount) }}</dd>
           </div>
           <div class="detail-item">
             <dt>{{ isTransfer ? 'Dari' : 'Wallet' }}</dt>
@@ -225,7 +225,7 @@ function toggle() {
 
 function startEdit() {
   const t = props.transaction
-  edit.amount = Number(t.amount)
+  edit.amount = t.amount
   edit.wallet_id = t.wallet_id
   edit.wallet_to_id = t.wallet_to_id ?? ''
   edit.category_id = t.category_id ?? ''
