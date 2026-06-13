@@ -28,14 +28,32 @@
       <span>Kategori</span>
     </NuxtLink>
 
-    <NuxtLink
-      to="/settings"
-      :class="['bottom-nav-item', { 'bottom-nav-item--active': route.path === '/settings' }]"
+    <button
+      type="button"
+      :class="['bottom-nav-item', { 'bottom-nav-item--active': isMoreActive }]"
+      @click="moreOpen = true"
     >
-      <IconSettings :size="22" stroke-width="1.75" />
-      <span>Settings</span>
-    </NuxtLink>
+      <IconDots :size="22" stroke-width="1.75" />
+      <span>Lainnya</span>
+    </button>
   </nav>
+
+  <Teleport to="body">
+    <div v-if="moreOpen" class="more-backdrop" @click="moreOpen = false" />
+    <div v-if="moreOpen" class="more-sheet" role="dialog" aria-label="Menu lainnya">
+      <div class="more-handle" />
+      <NuxtLink
+        v-for="item in moreItems"
+        :key="item.path"
+        :to="item.path"
+        class="more-item"
+        @click="moreOpen = false"
+      >
+        <component :is="item.icon" :size="20" stroke-width="1.75" />
+        <span>{{ item.label }}</span>
+      </NuxtLink>
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -44,14 +62,31 @@ import {
   IconReceipt2,
   IconPlus,
   IconTag,
+  IconDots,
+  IconChefHat,
+  IconSalad,
+  IconToolsKitchen2,
   IconSettings,
 } from '@tabler/icons-vue'
 
 const route = useRoute()
+const moreOpen = ref(false)
+
+const moreItems = [
+  { path: '/menu', label: 'Menu', icon: IconChefHat },
+  { path: '/ingredients', label: 'Bahan Baku', icon: IconSalad },
+  { path: '/menu/categories', label: 'Kategori Menu', icon: IconToolsKitchen2 },
+  { path: '/settings', label: 'Settings', icon: IconSettings },
+]
 
 const isTransactionsActive = computed(
   () => route.path === '/transactions' || route.path === '/transactions/new',
 )
+
+const isMoreActive = computed(() => moreItems.some((i) => route.path === i.path || route.path.startsWith(i.path + '/')))
+
+// Close the sheet on route change
+watch(() => route.path, () => { moreOpen.value = false })
 </script>
 
 <style scoped>
@@ -86,6 +121,9 @@ const isTransactionsActive = computed(
   font-size: 10px;
   font-weight: 500;
   padding: 8px 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
   transition: color 0.15s;
 }
 
@@ -110,5 +148,59 @@ const isTransactionsActive = computed(
 
 .bottom-nav-fab:active {
   opacity: 0.8;
+}
+
+.more-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 110;
+}
+
+@media (min-width: 640px) {
+  .more-backdrop,
+  .more-sheet {
+    display: none;
+  }
+}
+
+.more-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 111;
+  background: var(--color-bg);
+  border-top-left-radius: var(--radius-md);
+  border-top-right-radius: var(--radius-md);
+  padding: 8px 12px calc(var(--bottomnav-height) + 12px);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.more-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-border);
+  margin: 4px auto 8px;
+}
+
+.more-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 8px;
+  color: var(--color-text);
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+}
+
+.more-item:active {
+  background: var(--color-bg-subtle);
 }
 </style>
