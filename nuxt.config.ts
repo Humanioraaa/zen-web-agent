@@ -10,6 +10,12 @@ export default defineNuxtConfig({
     '@vite-pwa/nuxt',
   ],
 
+  // vue-toastification is CommonJS — transpile so its named exports (useToast)
+  // resolve during SSR (Vercel prod build), not just in dev.
+  build: {
+    transpile: ['vue-toastification'],
+  },
+
   app: {
     head: {
       charset: 'utf-8',
