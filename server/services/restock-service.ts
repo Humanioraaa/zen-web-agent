@@ -122,6 +122,9 @@ async function commitCore(
   // Update current price unless it's an anomaly the owner did not accept.
   const applyPrice = m.verdict === 'anomaly' ? input.accept_price === true : true
 
+  // Label the expense so the ledger is readable (was showing blank "—").
+  const note = input.note ?? `Restock ${ing.name} (${m.packages} kemasan)`
+
   return createRestock(event, {
     ingredient_id: input.ingredient_id,
     qty_value: input.qty_value,
@@ -137,7 +140,7 @@ async function commitCore(
     created_by: createdBy,
     source,
     date: new Date().toISOString().slice(0, 10),
-    note: input.note ?? null,
+    note,
   }, client)
 }
 
