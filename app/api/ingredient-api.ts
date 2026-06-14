@@ -1,5 +1,6 @@
 import type { ApiArray, ApiItem } from '~/types/base'
 import type { Ingredient, IngredientCreateInput, IngredientUpdateInput } from '~/types/ingredient'
+import type { PriceHistoryPoint } from '~/types/restock'
 
 export function useIngredientApi() {
   // useRequestFetch forwards auth cookies during SSR (plain $fetch does not)
@@ -9,6 +10,11 @@ export function useIngredientApi() {
     apiFetch<ApiArray<Ingredient>>('/api/ingredients', {
       query: activeOnly ? { active: 'true' } : {},
     })
+
+  const get = (id: string) => apiFetch<ApiItem<Ingredient>>(`/api/ingredients/${id}`)
+
+  const priceHistory = (id: string) =>
+    apiFetch<ApiArray<PriceHistoryPoint>>(`/api/ingredients/${id}/price-history`)
 
   const create = (input: IngredientCreateInput) =>
     apiFetch<ApiItem<Ingredient>>('/api/ingredients', { method: 'POST', body: input })
@@ -25,5 +31,5 @@ export function useIngredientApi() {
       body: { package_size: packageSize, package_cost: packageCost },
     })
 
-  return { list, create, update, remove, calcUnitCost }
+  return { list, get, priceHistory, create, update, remove, calcUnitCost }
 }

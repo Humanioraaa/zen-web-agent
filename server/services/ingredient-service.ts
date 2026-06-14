@@ -2,6 +2,7 @@ import type { H3Event } from 'h3'
 import type { Ingredient, IngredientCreateInput, IngredientUpdateInput } from '~/types/ingredient'
 import {
   getIngredients,
+  getIngredientById,
   createIngredient,
   updateIngredient,
   deleteIngredient,
@@ -25,12 +26,19 @@ function toIngredient(row: IngredientRow): Ingredient {
     package_cost: Number(row.package_cost),
     unit_cost: Number(row.unit_cost),
     is_active: row.is_active,
+    price_alert_threshold_pct:
+      row.price_alert_threshold_pct === null ? null : Number(row.price_alert_threshold_pct),
   }
 }
 
 export async function listIngredients(event: H3Event, activeOnly = false): Promise<Ingredient[]> {
   const rows = await getIngredients(event, activeOnly)
   return rows.map(toIngredient)
+}
+
+export async function getIngredient(event: H3Event, id: string): Promise<Ingredient> {
+  const row = await getIngredientById(event, id)
+  return toIngredient(row)
 }
 
 export async function addIngredient(event: H3Event, payload: IngredientCreateInput): Promise<Ingredient> {

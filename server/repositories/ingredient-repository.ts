@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { TablesInsert, TablesUpdate } from '~/types/database.types'
 import type { H3Event } from 'h3'
 
-const COLUMNS = 'id, name, base_unit, package_size, package_cost, unit_cost, is_active'
+const COLUMNS = 'id, name, base_unit, package_size, package_cost, unit_cost, is_active, price_alert_threshold_pct'
 
 async function resolveClient(event: H3Event, client?: SupabaseClient) {
   return client ?? await serverSupabaseClient(event)

@@ -9,6 +9,12 @@ const schema = z.object({
   package_size: z.number().positive('Ukuran kemasan harus > 0').optional(),
   package_cost: z.number().min(0, 'Harga kemasan tidak boleh negatif').optional(),
   is_active: z.boolean().optional(),
+  price_alert_threshold_pct: z
+    .number()
+    .min(1, 'Ambang minimal 1%')
+    .max(100, 'Ambang maksimal 100%')
+    .nullable()
+    .optional(),
 })
 
 export default defineEventHandler(async (event) => {

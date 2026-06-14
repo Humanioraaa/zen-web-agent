@@ -61,12 +61,12 @@
     <!-- List -->
     <ul v-else class="ing-list">
       <li v-for="ing in ingredients" :key="ing.id" class="ing-row" :class="{ 'ing-row--inactive': !ing.is_active }">
-        <div class="ing-main">
+        <NuxtLink :to="`/ingredients/${ing.id}`" class="ing-main">
           <span class="ing-name">{{ ing.name }}</span>
           <span class="ing-meta">
             {{ ing.package_size }} {{ ing.base_unit }} · {{ formatRupiah(ing.package_cost) }}
           </span>
-        </div>
+        </NuxtLink>
         <span class="ing-unitcost">{{ formatRupiah(ing.unit_cost) }} / {{ ing.base_unit }}</span>
         <div class="row-actions">
           <button
@@ -376,6 +376,13 @@ async function confirmDelete() {
   gap: 2px;
   flex: 1;
   min-width: 0;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.ing-main:hover .ing-name {
+  text-decoration: underline;
 }
 
 .ing-name {

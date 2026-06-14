@@ -13,6 +13,8 @@ export interface GeminiParseResult {
   wallet_to: string | null
   category: string | null
   item: string | null
+  qty_value: number | null
+  qty_unit: 'package' | 'base' | null
   confidence: 'high' | 'low'
   errorKind?: GeminiErrorKind
 }
@@ -53,6 +55,14 @@ Always normalize item names to a single canonical Indonesian form. Synonyms, abb
 - es, ice → "es"
 Use consistent lowercase for the "item" field. If two different spellings or languages refer to the same product, always return the same canonical item name.
 
+IMPORTANT — Restock quantity:
+If the message mentions a purchase quantity for an ingredient, extract it:
+- "qty_value": the number bought (e.g. "2 pack" → 2, "2000 ml" → 2000). null if not mentioned.
+- "qty_unit": "package" when the unit is a container (pack, kemasan, botol, sak, dus, karton); "base" when it is a measure (ml, g, gram, kg, liter, l, pcs). null if no quantity.
+Example: "beli susu 2 pack 50rb" → item "susu", amount 50000, qty_value 2, qty_unit "package".
+Example: "beli gula 1kg 18rb" → item "gula", amount 18000, qty_value 1000, qty_unit "base" (1kg = 1000 g).
+For non-purchase messages, qty_value and qty_unit are null.
+
 Return ONLY a valid JSON object, no explanation.
 
 Response format:
@@ -63,6 +73,8 @@ Response format:
   "wallet_to": "${walletNames[0]}" | "${walletNames[1]}" | ... | null,
   "category": string | null,
   "item": string | null,
+  "qty_value": number | null,
+  "qty_unit": "package" | "base" | null,
   "confidence": "high" | "low"
 }`
 }
@@ -93,7 +105,7 @@ const VALID_TYPES = ['expense', 'income', 'transfer', 'query', 'unknown'] as con
 const MAX_RETRIES = 1
 
 function errorResult(kind: GeminiErrorKind): GeminiParseResult {
-  return { type: 'error', amount: null, wallet: null, wallet_to: null, category: null, item: null, confidence: 'low', errorKind: kind }
+  return { type: 'error', amount: null, wallet: null, wallet_to: null, category: null, item: null, qty_value: null, qty_unit: null, confidence: 'low', errorKind: kind }
 }
 
 function isRateLimitError(error: unknown): boolean {
@@ -117,7 +129,7 @@ async function callGemini(
   const parsed = JSON.parse(json) as GeminiParseResult
 
   if (!parsed.type || !VALID_TYPES.includes(parsed.type as typeof VALID_TYPES[number])) {
-    return { type: 'unknown', amount: null, wallet: null, wallet_to: null, category: null, item: null, confidence: 'low' }
+    return { type: 'unknown', amount: null, wallet: null, wallet_to: null, category: null, item: null, qty_value: null, qty_unit: null, confidence: 'low' }
   }
 
   return parsed

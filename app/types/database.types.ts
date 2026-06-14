@@ -100,6 +100,60 @@ export type Database = {
         }
         Relationships: []
       }
+      ingredient_price_history: {
+        Row: {
+          created_at: string
+          id: string
+          ingredient_id: string
+          note: string | null
+          package_cost: number
+          package_size: number
+          pct_change: number | null
+          restock_id: string | null
+          source: string
+          unit_cost: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ingredient_id: string
+          note?: string | null
+          package_cost: number
+          package_size: number
+          pct_change?: number | null
+          restock_id?: string | null
+          source: string
+          unit_cost: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ingredient_id?: string
+          note?: string | null
+          package_cost?: number
+          package_size?: number
+          pct_change?: number | null
+          restock_id?: string | null
+          source?: string
+          unit_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingredient_price_history_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ingredient_price_history_restock_id_fkey"
+            columns: ["restock_id"]
+            isOneToOne: false
+            referencedRelation: "restocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ingredients: {
         Row: {
           base_unit: string
@@ -109,6 +163,7 @@ export type Database = {
           name: string
           package_cost: number
           package_size: number
+          price_alert_threshold_pct: number | null
           unit_cost: number | null
           updated_at: string
         }
@@ -120,6 +175,7 @@ export type Database = {
           name: string
           package_cost: number
           package_size: number
+          price_alert_threshold_pct?: number | null
           unit_cost?: number | null
           updated_at?: string
         }
@@ -131,6 +187,7 @@ export type Database = {
           name?: string
           package_cost?: number
           package_size?: number
+          price_alert_threshold_pct?: number | null
           unit_cost?: number | null
           updated_at?: string
         }
@@ -276,6 +333,73 @@ export type Database = {
           },
         ]
       }
+      restocks: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          expense_transaction_id: string | null
+          id: string
+          ingredient_id: string
+          note: string | null
+          package_cost: number
+          package_size_at_time: number
+          packages: number
+          qty_unit: string
+          qty_value: number
+          total_cost: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          expense_transaction_id?: string | null
+          id?: string
+          ingredient_id: string
+          note?: string | null
+          package_cost: number
+          package_size_at_time: number
+          packages: number
+          qty_unit: string
+          qty_value: number
+          total_cost: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          expense_transaction_id?: string | null
+          id?: string
+          ingredient_id?: string
+          note?: string | null
+          package_cost?: number
+          package_size_at_time?: number
+          packages?: number
+          qty_unit?: string
+          qty_value?: number
+          total_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restocks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "restocks_expense_transaction_id_fkey"
+            columns: ["expense_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "restocks_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           amount: number
@@ -403,7 +527,40 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_restock: {
+        Args: {
+          p_apply_price: boolean
+          p_category_id: string
+          p_created_by: string
+          p_date: string
+          p_ingredient_id: string
+          p_note: string
+          p_package_cost: number
+          p_package_size_at_time: number
+          p_packages: number
+          p_pct_change: number
+          p_qty_unit: string
+          p_qty_value: number
+          p_source: string
+          p_total_cost: number
+          p_wallet_id: string
+        }
+        Returns: Json
+      }
+      match_ingredients: {
+        Args: { p_limit?: number; p_query: string }
+        Returns: {
+          base_unit: string
+          id: string
+          name: string
+          package_cost: number
+          package_size: number
+          price_alert_threshold_pct: number
+          similarity: number
+        }[]
+      }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       audit_action: "create" | "update" | "delete"

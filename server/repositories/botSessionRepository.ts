@@ -9,6 +9,15 @@ export type BotState =
   | 'AWAITING_PIN'
   | 'AWAITING_CATEGORY_SELECTION'
   | 'AWAITING_SMART_CONFIRM'
+  | 'AWAITING_DISAMBIGUATION'
+  | 'AWAITING_RESTOCK_QTY'
+  | 'AWAITING_RESTOCK_CONFIRM'
+  | 'AWAITING_RESTOCK_ANOMALY'
+
+export interface RestockCandidate {
+  id: string
+  name: string
+}
 
 export interface BotSessionContext {
   type: 'expense' | 'income' | 'transfer'
@@ -21,6 +30,16 @@ export interface BotSessionContext {
   date: string
   pin_attempts: number
   editing_field: string | null
+  // --- Sprint 12 restock fields (set during RESTOCK_*/DISAMBIGUATION states) ---
+  kind?: 'restock'
+  ingredient_id?: string
+  ingredient_name?: string
+  base_unit?: string
+  qty_value?: number | null
+  qty_unit?: 'package' | 'base' | null
+  total_cost?: number
+  accept_price?: boolean
+  candidates?: RestockCandidate[]
 }
 
 export interface BotSession {

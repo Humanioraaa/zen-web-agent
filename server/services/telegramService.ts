@@ -74,6 +74,33 @@ export function smartConfirmKeyboard(categoryName: string): InlineKeyboard {
   ]
 }
 
+export function restockConfirmKeyboard(): InlineKeyboard {
+  return [
+    [
+      { text: '✅ Simpan restock', callback_data: 'restock_confirm_yes' },
+      { text: '❌ Batal', callback_data: 'restock_cancel' },
+    ],
+  ]
+}
+
+export function restockAnomalyKeyboard(direction: 'naik' | 'turun'): InlineKeyboard {
+  return [
+    [{ text: `✅ Harga memang ${direction}`, callback_data: 'restock_anomaly_accept' }],
+    [
+      { text: '🔢 Salah jumlah', callback_data: 'restock_anomaly_reqty' },
+      { text: '➖ Catat saja', callback_data: 'restock_anomaly_keep' },
+    ],
+  ]
+}
+
+export function disambiguationKeyboard(candidates: { id: string; name: string }[]): InlineKeyboard {
+  const rows: InlineKeyboard = candidates.map((c) => [
+    { text: `✅ ${c.name}`, callback_data: `disambig_${c.id}` },
+  ])
+  rows.push([{ text: '🚫 Bukan, ini bukan bahan', callback_data: 'disambig_none' }])
+  return rows
+}
+
 export function categoryKeyboard(categories: { id: string; name: string }[]): InlineKeyboard {
   const rows: InlineKeyboard = []
   for (let i = 0; i < categories.length; i += 2) {

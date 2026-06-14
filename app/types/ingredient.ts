@@ -8,6 +8,7 @@ export interface Ingredient {
   package_cost: number
   unit_cost: number
   is_active: boolean
+  price_alert_threshold_pct: number | null // null = use global default
 }
 
 export interface IngredientCreateInput {
@@ -23,4 +24,5 @@ export interface IngredientUpdateInput {
   package_size?: number
   package_cost?: number
   is_active?: boolean
+  price_alert_threshold_pct?: number | null
 }

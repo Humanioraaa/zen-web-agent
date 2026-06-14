@@ -11,9 +11,12 @@ import {
   sendMessage,
   categoryKeyboard,
   smartConfirmKeyboard,
+  disambiguationKeyboard,
 } from '~~/server/services/telegramService'
 import { parseAmount } from '~~/server/utils/parseAmount'
+import { matchIngredient } from '~~/server/services/ingredient-match-service'
 import { handleQuery } from './queryHandler'
+import { startRestockFlow, handleRestockQtyInput, finalizeRestock } from './restockHandler'
 import {
   HELP_TEXT,
   geminiErrorMessage,
@@ -24,6 +27,7 @@ import {
   saveTransactionFromSession,
   updateSmartLearning,
   handleAddCategory,
+  todayIso,
 } from './utils'
 
 export async function handleTextMessage(
@@ -45,6 +49,11 @@ export async function handleTextMessage(
 
   if (session.state === 'AWAITING_EDIT_VALUE') {
     await handleEditValue(event, session, chatId, text)
+    return
+  }
+
+  if (session.state === 'AWAITING_RESTOCK_QTY') {
+    await handleRestockQtyInput(event, session, chatId, text)
     return
   }
 
@@ -104,6 +113,8 @@ export async function handleTextMessage(
         wallet_to: parsed.wallet_to,
         category: parsed.category,
         item: parsed.item,
+        qty_value: parsed.qty_value,
+        qty_unit: parsed.qty_unit,
       })
       return
   }
@@ -121,6 +132,8 @@ async function handleTransactionInput(
     wallet_to: string | null
     category: string | null
     item: string | null
+    qty_value: number | null
+    qty_unit: 'package' | 'base' | null
   },
 ): Promise<void> {
   const client = serverSupabaseServiceRole(event)
@@ -148,6 +161,64 @@ async function handleTransactionInput(
   if (parsed.type === 'transfer' && (!walletId || !walletToId)) {
     await sendMessage(chatId, 'Wallet tidak ditemukan. Pilihan: Cash, Rekening, GoPay, ShopeePay')
     return
+  }
+
+  // Sprint 12 — an ingredient purchase becomes a restock (piggybacks the expense flow)
+  if (parsed.type === 'expense' && parsed.item) {
+    const match = await matchIngredient(event, parsed.item, client)
+    if (match.verdict === 'exact' || match.verdict === 'near') {
+      let restockWalletId = walletId
+      if (!restockWalletId) {
+        const wallets = await getAllWallets(event, client)
+        restockWalletId = wallets[0]?.id ?? null
+      }
+      if (!restockWalletId) {
+        await sendMessage(chatId, 'Wallet tidak ditemukan. Pilihan: Cash, Rekening, GoPay, ShopeePay')
+        return
+      }
+
+      if (match.verdict === 'exact') {
+        const ing = match.candidates[0]!
+        await startRestockFlow(event, session, chatId, {
+          ingredient_id: ing.id,
+          ingredient_name: ing.name,
+          base_unit: ing.base_unit,
+          total_cost: parsed.amount,
+          wallet_id: restockWalletId,
+          qty_value: parsed.qty_value,
+          qty_unit: parsed.qty_unit,
+        })
+        return
+      }
+
+      // near-match → ask which ingredient (never silently create a duplicate)
+      session.state = 'AWAITING_DISAMBIGUATION'
+      session.context = {
+        type: 'expense',
+        amount: parsed.amount,
+        wallet_id: restockWalletId,
+        wallet_to_id: null,
+        category_id: null,
+        item: parsed.item,
+        note: null,
+        date: todayIso(),
+        pin_attempts: 0,
+        editing_field: null,
+        kind: 'restock',
+        total_cost: parsed.amount,
+        qty_value: parsed.qty_value,
+        qty_unit: parsed.qty_unit,
+        candidates: match.candidates.map((c) => ({ id: c.id, name: c.name })),
+      }
+      await saveSession(event, session)
+      await sendMessage(
+        chatId,
+        `"${parsed.item}" bukan nama bahan yang persis. Maksud kamu?`,
+        disambiguationKeyboard(match.candidates),
+      )
+      return
+    }
+    // verdict 'none' → fall through to the normal expense flow
   }
 
   let categoryId: string | null = null
@@ -229,9 +300,13 @@ async function handlePinInput(
   const attempts = (session.context?.pin_attempts ?? 0) + 1
 
   if (text.trim() === correctPin) {
-    await saveTransactionFromSession(event, user, session)
-    await clearSession(event, session.telegram_user_id)
-    await sendMessage(chatId, '✅ Dicatat!')
+    if (session.context?.kind === 'restock') {
+      await finalizeRestock(event, user, session, chatId)
+    } else {
+      await saveTransactionFromSession(event, user, session)
+      await clearSession(event, session.telegram_user_id)
+      await sendMessage(chatId, '✅ Dicatat!')
+    }
     return
   }
 

@@ -5,6 +5,7 @@ import {
   clearSession,
 } from '~~/server/repositories/botSessionRepository'
 import { getCategories } from '~~/server/repositories/categoryRepository'
+import { getIngredientById } from '~~/server/repositories/ingredient-repository'
 import {
   sendMessage,
   editMessage,
@@ -15,6 +16,7 @@ import {
   editConfirmationMessage,
   updateSmartLearning,
 } from './utils'
+import { startRestockFlow, commitOrPin } from './restockHandler'
 
 export async function handleCallbackQuery(
   event: H3Event,
@@ -24,6 +26,69 @@ export async function handleCallbackQuery(
   callbackData: string,
   messageId: number,
 ): Promise<void> {
+  // --- Sprint 12: restock disambiguation ---
+  if (callbackData === 'disambig_none' && session.state === 'AWAITING_DISAMBIGUATION') {
+    await clearSession(event, session.telegram_user_id)
+    await editMessage(chatId, messageId, '🚫 Oke, dianggap bukan bahan. Kalau mau dicatat sebagai pengeluaran biasa, ketik ulang dengan nama lain.')
+    return
+  }
+
+  if (callbackData.startsWith('disambig_') && session.state === 'AWAITING_DISAMBIGUATION') {
+    const ingredientId = callbackData.replace('disambig_', '')
+    const ctx = session.context
+    if (!ctx || ctx.total_cost == null) {
+      await clearSession(event, session.telegram_user_id)
+      return
+    }
+    const client = serverSupabaseServiceRole(event)
+    const ing = await getIngredientById(event, ingredientId, client)
+    await editMessage(chatId, messageId, `✅ ${ing.name}`)
+    await startRestockFlow(event, session, chatId, {
+      ingredient_id: ing.id,
+      ingredient_name: ing.name,
+      base_unit: ing.base_unit,
+      total_cost: ctx.total_cost,
+      wallet_id: ctx.wallet_id,
+      qty_value: ctx.qty_value ?? null,
+      qty_unit: ctx.qty_unit ?? null,
+    })
+    return
+  }
+
+  // --- Sprint 12: restock confirm / anomaly ---
+  if (callbackData === 'restock_confirm_yes' && session.state === 'AWAITING_RESTOCK_CONFIRM') {
+    await editMessage(chatId, messageId, '⏳ Memproses…')
+    await commitOrPin(event, user, session, chatId)
+    return
+  }
+
+  if (callbackData === 'restock_anomaly_accept' && session.state === 'AWAITING_RESTOCK_ANOMALY') {
+    if (session.context) session.context.accept_price = true
+    await editMessage(chatId, messageId, '⏳ Memproses…')
+    await commitOrPin(event, user, session, chatId)
+    return
+  }
+
+  if (callbackData === 'restock_anomaly_keep' && session.state === 'AWAITING_RESTOCK_ANOMALY') {
+    if (session.context) session.context.accept_price = false
+    await editMessage(chatId, messageId, '⏳ Memproses…')
+    await commitOrPin(event, user, session, chatId)
+    return
+  }
+
+  if (callbackData === 'restock_anomaly_reqty' && session.state === 'AWAITING_RESTOCK_ANOMALY') {
+    session.state = 'AWAITING_RESTOCK_QTY'
+    await saveSession(event, session)
+    await editMessage(chatId, messageId, 'Oke, berapa jumlah yang benar?\nContoh: 2 pack atau 2000 ml')
+    return
+  }
+
+  if (callbackData === 'restock_cancel') {
+    await clearSession(event, session.telegram_user_id)
+    await editMessage(chatId, messageId, '❌ Restock dibatalkan.')
+    return
+  }
+
   if (callbackData === 'confirm_yes' && session.state === 'AWAITING_CONFIRMATION') {
     if (session.context && session.context.amount > 500_000) {
       session.state = 'AWAITING_PIN'
