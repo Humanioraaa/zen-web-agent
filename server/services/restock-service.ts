@@ -136,7 +136,9 @@ async function commitCore(
     pct_change: m.pct_change,
     apply_price: applyPrice,
     wallet_id: input.wallet_id,
-    category_id: input.category_id ?? null,
+    // Restock expense inherits the ingredient's expense category (Sprint 13 Part A).
+    // Falls back to any explicitly-passed category, then null.
+    category_id: ing.category_id ?? input.category_id ?? null,
     created_by: createdBy,
     source,
     date: new Date().toISOString().slice(0, 10),

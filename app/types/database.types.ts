@@ -157,6 +157,7 @@ export type Database = {
       ingredients: {
         Row: {
           base_unit: string
+          category_id: string | null
           created_at: string
           id: string
           is_active: boolean
@@ -169,6 +170,7 @@ export type Database = {
         }
         Insert: {
           base_unit: string
+          category_id?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
@@ -181,6 +183,7 @@ export type Database = {
         }
         Update: {
           base_unit?: string
+          category_id?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
@@ -191,7 +194,15 @@ export type Database = {
           unit_cost?: number | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ingredients_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       item_category_memory: {
         Row: {

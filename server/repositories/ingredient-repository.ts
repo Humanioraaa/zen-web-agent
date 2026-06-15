@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { TablesInsert, TablesUpdate } from '~/types/database.types'
 import type { H3Event } from 'h3'
 
-const COLUMNS = 'id, name, base_unit, package_size, package_cost, unit_cost, is_active, price_alert_threshold_pct'
+const COLUMNS = 'id, name, base_unit, package_size, package_cost, unit_cost, is_active, price_alert_threshold_pct, category_id, categories(name)'
 
 async function resolveClient(event: H3Event, client?: SupabaseClient) {
   return client ?? await serverSupabaseClient(event)
@@ -27,7 +27,7 @@ export async function getIngredientById(event: H3Event, id: string, client?: Sup
 
 export async function createIngredient(
   event: H3Event,
-  payload: { name: string; base_unit: string; package_size: number; package_cost: number },
+  payload: { name: string; base_unit: string; package_size: number; package_cost: number; category_id?: string | null },
   client?: SupabaseClient,
 ) {
   const supabase = await resolveClient(event, client)

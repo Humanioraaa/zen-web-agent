@@ -20,6 +20,10 @@
           <span>Biaya satuan</span>
           <strong>{{ formatRupiah(ingredient.unit_cost) }} / {{ ingredient.base_unit }}</strong>
         </div>
+        <div class="info-line">
+          <span>Kategori</span>
+          <strong>{{ ingredient.category_name ?? '—' }}</strong>
+        </div>
         <div class="threshold-row">
           <label class="form-label" for="threshold">Ambang alert harga (%)</label>
           <div class="threshold-edit">

@@ -34,6 +34,10 @@
         placeholder="Harga kemasan"
         :disabled="saving"
       />
+      <select v-model="form.category_id" class="field field--cat" :disabled="saving">
+        <option :value="null" disabled>Pilih kategori</option>
+        <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+      </select>
       <button type="submit" class="add-btn" :disabled="saving || !formValid">
         <IconLoader2 v-if="saving" :size="16" class="spin" />
         <component :is="editingId ? IconCheck : IconPlus" v-else :size="16" />
@@ -65,6 +69,7 @@
           <span class="ing-name">{{ ing.name }}</span>
           <span class="ing-meta">
             {{ ing.package_size }} {{ ing.base_unit }} · {{ formatRupiah(ing.package_cost) }}
+            <template v-if="ing.category_name"> · {{ ing.category_name }}</template>
           </span>
         </NuxtLink>
         <span class="ing-unitcost">{{ formatRupiah(ing.unit_cost) }} / {{ ing.base_unit }}</span>
@@ -111,24 +116,31 @@
 import { IconPlus, IconPencil, IconTrash, IconLoader2, IconCheck, IconEye, IconEyeOff } from '@tabler/icons-vue'
 import { useToast } from 'vue-toastification'
 import { useIngredientApi } from '~/api/ingredient-api'
+import { useCategoryApi } from '~/api/category-api'
 import type { BaseUnit, Ingredient } from '~/types/ingredient'
 
 const toast = useToast()
 const { formatRupiah } = useFormatRupiah()
 const api = useIngredientApi()
+const categoryApi = useCategoryApi()
 
 const { data, pending, refresh } = await useAsyncData('ingredients', () => api.list())
 const ingredients = computed(() => data.value?.data ?? [])
+
+// Expense categories feed the required dropdown (shared with the expense ledger).
+const { data: categoryData } = await useAsyncData('expense-categories', () => categoryApi.list('expense'))
+const categories = computed(() => categoryData.value?.data ?? [])
 
 interface FormState {
   name: string
   base_unit: BaseUnit
   package_size: number | null
   package_cost: number | null
+  category_id: string | null
 }
 
 function emptyForm(): FormState {
-  return { name: '', base_unit: 'ml', package_size: null, package_cost: null }
+  return { name: '', base_unit: 'ml', package_size: null, package_cost: null, category_id: null }
 }
 
 const form = reactive<FormState>(emptyForm())
@@ -180,7 +192,8 @@ const formValid = computed(
     typeof form.package_size === 'number' &&
     form.package_size > 0 &&
     typeof form.package_cost === 'number' &&
-    form.package_cost >= 0,
+    form.package_cost >= 0 &&
+    !!form.category_id,
 )
 
 function resetForm() {
@@ -194,16 +207,18 @@ function startEdit(ing: Ingredient) {
   form.base_unit = ing.base_unit
   form.package_size = ing.package_size
   form.package_cost = ing.package_cost
+  form.category_id = ing.category_id
 }
 
 async function submitForm() {
-  if (!formValid.value || form.package_size === null || form.package_cost === null) return
+  if (!formValid.value || form.package_size === null || form.package_cost === null || !form.category_id) return
   saving.value = true
   const payload = {
     name: form.name.trim(),
     base_unit: form.base_unit,
     package_size: form.package_size,
     package_cost: form.package_cost,
+    category_id: form.category_id,
   }
   try {
     if (editingId.value) {
@@ -303,6 +318,10 @@ async function confirmDelete() {
 .field--num {
   flex: 1 1 120px;
   min-width: 0;
+}
+
+.field--cat {
+  flex: 1 1 100%;
 }
 
 .add-btn {

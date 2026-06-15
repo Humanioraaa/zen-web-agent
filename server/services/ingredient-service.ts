@@ -11,6 +11,14 @@ import {
 
 type IngredientRow = Awaited<ReturnType<typeof getIngredients>>[number]
 
+// Supabase types an embedded FK resource as an array even for many-to-one,
+// while at runtime it returns a single object. Handle both shapes.
+function extractCategoryName(categories: unknown): string | null {
+  if (!categories) return null
+  if (Array.isArray(categories)) return categories[0]?.name ?? null
+  return (categories as { name?: string }).name ?? null
+}
+
 // Draft unit-cost preview (no persistence) — mirrors the generated column package_cost / package_size
 export function calcUnitCost(packageSize: number, packageCost: number): number {
   if (packageSize <= 0) return 0
@@ -28,6 +36,8 @@ function toIngredient(row: IngredientRow): Ingredient {
     is_active: row.is_active,
     price_alert_threshold_pct:
       row.price_alert_threshold_pct === null ? null : Number(row.price_alert_threshold_pct),
+    category_id: row.category_id ?? null,
+    category_name: extractCategoryName(row.categories),
   }
 }
 

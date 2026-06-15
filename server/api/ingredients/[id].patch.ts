@@ -15,6 +15,7 @@ const schema = z.object({
     .max(100, 'Ambang maksimal 100%')
     .nullable()
     .optional(),
+  category_id: z.string().uuid('Kategori tidak valid').nullable().optional(),
 })
 
 export default defineEventHandler(async (event) => {

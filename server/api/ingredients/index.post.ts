@@ -8,6 +8,7 @@ const schema = z.object({
   base_unit: z.enum(['ml', 'g', 'pcs']),
   package_size: z.number().positive('Ukuran kemasan harus > 0'),
   package_cost: z.number().min(0, 'Harga kemasan tidak boleh negatif'),
+  category_id: z.string().uuid('Kategori wajib dipilih'),
 })
 
 export default defineEventHandler(async (event) => {
