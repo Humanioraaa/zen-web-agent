@@ -55,10 +55,18 @@
 <script setup lang="ts">
 import { IconPlus, IconReceiptOff, IconLoader2 } from '@tabler/icons-vue'
 import { useToast } from 'vue-toastification'
-import type { TransactionRecord, Wallet, Category } from '~/types/models'
+import type { TransactionRecord } from '~/types/models'
+import type { TransactionListFilters } from '~/types/transaction'
+import { useTransactionApi } from '~/api/transaction-api'
+import { useWalletApi } from '~/api/wallet-api'
+import { useCategoryApi } from '~/api/category-api'
 
 const route = useRoute()
 const toast = useToast()
+
+const transactionApi = useTransactionApi()
+const walletApi = useWalletApi()
+const categoryApi = useCategoryApi()
 
 const LIMIT = 20
 
@@ -71,8 +79,8 @@ const filters = reactive({
   search: '',
 })
 
-const { data: walletsData } = await useFetch<{ data: Wallet[] }>('/api/wallets')
-const { data: catData } = await useFetch<{ data: Category[] }>('/api/categories')
+const { data: walletsData } = await useAsyncData('tx-list-wallets', () => walletApi.list())
+const { data: catData } = await useAsyncData('tx-list-categories', () => categoryApi.list())
 const wallets = computed(() => walletsData.value?.data ?? [])
 const categories = computed(() => catData.value?.data ?? [])
 
@@ -103,8 +111,8 @@ const grouped = computed(() => {
   return Array.from(map.entries()).map(([date, txs]) => ({ date, txs }))
 })
 
-function buildQuery() {
-  const q: Record<string, string | number> = { limit: LIMIT, offset: offset.value }
+function buildQuery(): TransactionListFilters {
+  const q: TransactionListFilters = { limit: LIMIT, offset: offset.value }
   if (filters.type) q.type = filters.type
   if (filters.wallet_id) q.wallet_id = filters.wallet_id
   if (filters.category_id) q.category_id = filters.category_id
@@ -123,9 +131,7 @@ async function load(reset: boolean) {
   }
 
   try {
-    const res = await $fetch<{ data: TransactionRecord[]; total: number }>('/api/transactions', {
-      query: buildQuery(),
-    })
+    const res = await transactionApi.list(buildQuery())
     items.value = reset ? res.data : [...items.value, ...res.data]
     total.value = res.total
   } catch {

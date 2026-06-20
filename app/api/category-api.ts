@@ -1,4 +1,4 @@
-import type { ApiArray } from '~/types/base'
+import type { ApiArray, ApiItem } from '~/types/base'
 import type { Category, CategoryType } from '~/types/category'
 
 export function useCategoryApi() {
@@ -10,5 +10,14 @@ export function useCategoryApi() {
       query: type ? { type } : {},
     })
 
-  return { list }
+  const create = (input: { name: string; type: CategoryType }) =>
+    apiFetch<ApiItem<Category>>('/api/categories', { method: 'POST', body: input })
+
+  const update = (id: string, input: { name: string }) =>
+    apiFetch<ApiItem<Category>>(`/api/categories/${id}`, { method: 'PATCH', body: input })
+
+  const remove = (id: string) =>
+    apiFetch<ApiItem<{ success: true }>>(`/api/categories/${id}`, { method: 'DELETE' })
+
+  return { list, create, update, remove }
 }

@@ -122,10 +122,12 @@
 import { IconPlus, IconPencil, IconTrash, IconLoader2, IconCheck, IconX } from '@tabler/icons-vue'
 import { useToast } from 'vue-toastification'
 import type { Category } from '~/types/models'
+import { useCategoryApi } from '~/api/category-api'
 
 const toast = useToast()
+const categoryApi = useCategoryApi()
 
-const { data, pending, refresh } = await useFetch<{ data: Category[] }>('/api/categories')
+const { data, pending, refresh } = await useAsyncData('categories-list', () => categoryApi.list())
 const categories = computed(() => data.value?.data ?? [])
 
 const activeType = ref<'expense' | 'income'>('expense')
@@ -157,10 +159,7 @@ async function addCat() {
   if (!name) return
   adding.value = true
   try {
-    await $fetch('/api/categories', {
-      method: 'POST',
-      body: { name, type: activeType.value },
-    })
+    await categoryApi.create({ name, type: activeType.value })
     newName.value = ''
     toast.success('Kategori ditambah')
     await refresh()
@@ -186,7 +185,7 @@ async function saveEdit(c: Category) {
   if (!name) return
   savingEdit.value = true
   try {
-    await $fetch(`/api/categories/${c.id}`, { method: 'PATCH', body: { name } })
+    await categoryApi.update(c.id, { name })
     toast.success('Kategori diperbarui')
     editingId.value = null
     await refresh()
@@ -201,7 +200,7 @@ async function confirmDelete() {
   if (!deleteTarget.value) return
   deleting.value = true
   try {
-    await $fetch(`/api/categories/${deleteTarget.value.id}`, { method: 'DELETE' })
+    await categoryApi.remove(deleteTarget.value.id)
     toast.success('Kategori dihapus')
     deleteTarget.value = null
     await refresh()

@@ -48,6 +48,7 @@
 import { IconLoader2 } from '@tabler/icons-vue'
 import { useToast } from 'vue-toastification'
 import type { UserProfile } from '~/composables/useCurrentUser'
+import { useUserApi } from '~/api/user-api'
 
 const props = defineProps<{
   user: UserProfile | null
@@ -59,6 +60,7 @@ const emit = defineEmits<{
 }>()
 
 const toast = useToast()
+const userApi = useUserApi()
 
 const telegramInput = ref('')
 watchEffect(() => {
@@ -74,9 +76,8 @@ async function save() {
   if (!props.user || !dirty.value) return
   saving.value = true
   try {
-    await $fetch(`/api/users/${props.user.id}`, {
-      method: 'PATCH',
-      body: { telegram_user_id: telegramInput.value.trim() || null },
+    await userApi.update(props.user.id, {
+      telegram_user_id: telegramInput.value.trim() || null,
     })
     toast.success('Profil diperbarui')
     emit('saved')

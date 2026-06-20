@@ -9,5 +9,14 @@ export function useWalletApi() {
 
   const summary = () => apiFetch<ApiItem<{ total: number }>>('/api/wallets/summary')
 
-  return { list, summary }
+  const update = (id: string, input: { name?: string; balance?: number; is_active?: boolean }) =>
+    apiFetch<ApiItem<Wallet>>(`/api/wallets/${id}`, { method: 'PATCH', body: input })
+
+  const openingBalances = (balances: Array<{ wallet_id: string; amount: number }>) =>
+    apiFetch<ApiItem<{ updated: number }>>('/api/wallets/opening-balances', {
+      method: 'POST',
+      body: { balances },
+    })
+
+  return { list, summary, update, openingBalances }
 }

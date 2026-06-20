@@ -61,16 +61,17 @@
 </template>
 
 <script setup lang="ts">
-import type { TransactionRecord } from '~/types/models'
 import { useWalletApi } from '~/api/wallet-api'
+import { useTransactionApi } from '~/api/transaction-api'
 
 const { formatRupiah } = useFormatRupiah()
 const walletApi = useWalletApi()
+const transactionApi = useTransactionApi()
 
 const { data: walletsData, pending: walletsPending } = await useAsyncData('dashboard-wallets', () => walletApi.list())
 const { data: totalData } = await useAsyncData('dashboard-total', () => walletApi.summary())
-const { data: summaryData, pending: summaryPending } = await useFetch<{ data: { income: number; expense: number } }>('/api/transactions/summary')
-const { data: recentData, pending: recentPending } = await useFetch<{ data: TransactionRecord[] }>('/api/transactions/recent')
+const { data: summaryData, pending: summaryPending } = await useAsyncData('dashboard-summary', () => transactionApi.summary())
+const { data: recentData, pending: recentPending } = await useAsyncData('dashboard-recent', () => transactionApi.recent())
 
 const wallets = computed(() => walletsData.value?.data ?? [])
 // Total comes from the backend (BE computes, FE displays).

@@ -79,11 +79,17 @@
 <script setup lang="ts">
 import { IconLoader2 } from '@tabler/icons-vue'
 import { useToast } from 'vue-toastification'
-import type { Wallet, Category } from '~/types/models'
+import { useTransactionApi } from '~/api/transaction-api'
+import { useWalletApi } from '~/api/wallet-api'
+import { useCategoryApi } from '~/api/category-api'
 
 const toast = useToast()
 const { todayLocal } = useDateUtils()
 const { validateTransaction } = useTransactionValidation()
+
+const transactionApi = useTransactionApi()
+const walletApi = useWalletApi()
+const categoryApi = useCategoryApi()
 
 type TxType = 'expense' | 'income' | 'transfer'
 
@@ -98,8 +104,8 @@ const note = ref('')
 const isSubmitting = ref(false)
 const errorMessage = ref('')
 
-const { data: walletsData } = await useFetch<{ data: Wallet[] }>('/api/wallets')
-const { data: catData } = await useFetch<{ data: Category[] }>('/api/categories')
+const { data: walletsData } = await useAsyncData('new-tx-wallets', () => walletApi.list())
+const { data: catData } = await useAsyncData('new-tx-categories', () => categoryApi.list())
 
 const wallets = computed(() => walletsData.value?.data ?? [])
 const categories = computed(() => catData.value?.data ?? [])
@@ -143,17 +149,14 @@ async function handleSubmit() {
   isSubmitting.value = true
 
   try {
-    await $fetch('/api/transactions', {
-      method: 'POST',
-      body: {
-        type: type.value,
-        amount: amount.value,
-        wallet_id: walletId.value,
-        wallet_to_id: isTransfer.value ? walletToId.value : undefined,
-        category_id: isTransfer.value ? undefined : categoryId.value,
-        note: note.value.trim() || undefined,
-        date: date.value,
-      },
+    await transactionApi.create({
+      type: type.value,
+      amount: amount.value,
+      wallet_id: walletId.value,
+      wallet_to_id: isTransfer.value ? walletToId.value : undefined,
+      category_id: isTransfer.value ? undefined : categoryId.value,
+      note: note.value.trim() || undefined,
+      date: date.value,
     })
     toast.success('Transaksi disimpan')
     await navigateTo('/dashboard')

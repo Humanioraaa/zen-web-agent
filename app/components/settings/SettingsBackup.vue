@@ -21,6 +21,7 @@
 <script setup lang="ts">
 import { IconLoader2, IconDownload } from '@tabler/icons-vue'
 import { useToast } from 'vue-toastification'
+import { useTransactionApi } from '~/api/transaction-api'
 
 interface ExportTransaction {
   date: string
@@ -36,6 +37,7 @@ interface ExportTransaction {
 }
 
 const toast = useToast()
+const transactionApi = useTransactionApi()
 const exporting = ref(false)
 
 const CSV_HEADERS = [
@@ -59,10 +61,8 @@ function csvCell(value: unknown): string {
 async function exportTransactions() {
   exporting.value = true
   try {
-    const res = await $fetch<{ data: ExportTransaction[] }>('/api/transactions', {
-      query: { limit: 9999, offset: 0 },
-    })
-    const rows = (res.data ?? []).map((t) => [
+    const res = await transactionApi.list({ limit: 9999, offset: 0 })
+    const rows = ((res.data ?? []) as unknown as ExportTransaction[]).map((t) => [
       t.date,
       t.type,
       t.amount,

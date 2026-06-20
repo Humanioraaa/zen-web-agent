@@ -55,20 +55,25 @@
 
 <script setup lang="ts">
 import { IconCoffee, IconLoader2 } from '@tabler/icons-vue'
+import type { Wallet } from '~/types/models'
+import { useWalletApi } from '~/api/wallet-api'
+import { useUserApi } from '~/api/user-api'
 
 definePageMeta({ layout: false })
+
+const walletApi = useWalletApi()
+const userApi = useUserApi()
 
 const step = ref(1)
 const isSubmitting = ref(false)
 const errorMessage = ref('')
 
-import type { Wallet } from '~/types/models'
 const wallets = ref<Wallet[]>([])
 const balances = ref<Record<string, number>>({})
 
 onMounted(async () => {
   try {
-    const response = await $fetch<{ data: Wallet[] }>('/api/wallets')
+    const response = await walletApi.list()
     wallets.value = response.data
     for (const wallet of response.data) {
       balances.value[wallet.id] = 0
@@ -88,12 +93,9 @@ async function handleSubmit() {
       amount: Number(amount) || 0,
     }))
 
-    await $fetch('/api/wallets/opening-balances', {
-      method: 'POST',
-      body: { balances: payload },
-    })
+    await walletApi.openingBalances(payload)
 
-    await $fetch('/api/users/onboarding-complete', { method: 'POST' })
+    await userApi.completeOnboarding()
     await navigateTo('/dashboard')
   } catch {
     isSubmitting.value = false
@@ -104,7 +106,7 @@ async function handleSubmit() {
 async function handleSkip() {
   isSubmitting.value = true
   try {
-    await $fetch('/api/users/onboarding-complete', { method: 'POST' })
+    await userApi.completeOnboarding()
     await navigateTo('/dashboard')
   } catch {
     isSubmitting.value = false

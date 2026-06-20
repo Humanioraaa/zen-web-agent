@@ -143,6 +143,7 @@
 import { IconPencil, IconTrash, IconLoader2 } from '@tabler/icons-vue'
 import { useToast } from 'vue-toastification'
 import type { TransactionRecord, Wallet, Category } from '~/types/models'
+import { useTransactionApi } from '~/api/transaction-api'
 
 const props = defineProps<{
   transaction: TransactionRecord
@@ -155,6 +156,8 @@ const emit = defineEmits<{ changed: [] }>()
 const { formatRupiah } = useFormatRupiah()
 const toast = useToast()
 const { validateTransaction } = useTransactionValidation()
+
+const transactionApi = useTransactionApi()
 
 const expanded = ref(false)
 const editing = ref(false)
@@ -256,16 +259,13 @@ async function saveEdit() {
   isSaving.value = true
 
   try {
-    await $fetch(`/api/transactions/${props.transaction.id}`, {
-      method: 'PATCH',
-      body: {
-        amount: edit.amount,
-        wallet_id: edit.wallet_id,
-        wallet_to_id: isTransfer.value ? edit.wallet_to_id : null,
-        category_id: isTransfer.value ? null : edit.category_id,
-        date: edit.date,
-        note: edit.note.trim() || null,
-      },
+    await transactionApi.update(props.transaction.id, {
+      amount: edit.amount,
+      wallet_id: edit.wallet_id,
+      wallet_to_id: isTransfer.value ? edit.wallet_to_id : null,
+      category_id: isTransfer.value ? null : edit.category_id,
+      date: edit.date,
+      note: edit.note.trim() || null,
     })
     toast.success('Transaksi diperbarui')
     editing.value = false
@@ -280,7 +280,7 @@ async function saveEdit() {
 async function handleDelete() {
   isDeleting.value = true
   try {
-    await $fetch(`/api/transactions/${props.transaction.id}`, { method: 'DELETE' })
+    await transactionApi.remove(props.transaction.id)
     toast.success('Transaksi dihapus')
     showDelete.value = false
     emit('changed')

@@ -41,6 +41,7 @@
 import { IconLoader2 } from '@tabler/icons-vue'
 import { useToast } from 'vue-toastification'
 import type { Wallet } from '~/types/models'
+import { useWalletApi } from '~/api/wallet-api'
 
 interface WalletEdit extends Wallet {
   saving: boolean
@@ -48,8 +49,9 @@ interface WalletEdit extends Wallet {
 }
 
 const toast = useToast()
+const walletApi = useWalletApi()
 
-const { data: walletsData, pending } = await useFetch<{ data: Wallet[] }>('/api/wallets')
+const { data: walletsData, pending } = await useAsyncData('settings-wallets', () => walletApi.list())
 const wallets = ref<WalletEdit[]>([])
 
 watchEffect(() => {
@@ -73,9 +75,10 @@ async function saveWallet(w: WalletEdit) {
   if (!w.name.trim() || !walletDirty(w)) return
   w.saving = true
   try {
-    const res = await $fetch<{ data: Wallet }>(`/api/wallets/${w.id}`, {
-      method: 'PATCH',
-      body: { name: w.name.trim(), balance: w.balance, is_active: w.is_active },
+    const res = await walletApi.update(w.id, {
+      name: w.name.trim(),
+      balance: w.balance,
+      is_active: w.is_active,
     })
     const saved = res.data
     w.name = saved.name
