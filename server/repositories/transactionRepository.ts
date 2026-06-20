@@ -1,6 +1,6 @@
 import { serverSupabaseClient } from '#supabase/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Enums, TablesInsert, TablesUpdate } from '~/types/database.types'
+import type { Enums, TablesInsert, Json } from '~/types/database.types'
 import type { H3Event } from 'h3'
 
 async function resolveClient(event: H3Event, client?: SupabaseClient) {
@@ -155,24 +155,17 @@ export interface TransactionPatchPayload {
   date?: string
 }
 
-export async function updateTransaction(
-  event: H3Event,
-  id: string,
-  payload: TransactionPatchPayload,
-) {
+// Atomic edit: reverse old balance effect + apply new + update row in one DB transaction
+// via the edit_transaction() SQL function. Returns nothing — caller re-reads the joined row.
+export async function editTransactionAtomic(event: H3Event, id: string, patch: TransactionPatchPayload) {
   const client = await serverSupabaseClient(event)
-  const { data, error } = await client
-    .from('transactions')
-    .update(payload as TablesUpdate<'transactions'>)
-    .eq('id', id)
-    .select(TRANSACTION_SELECT)
-    .single()
-  if (error) throw createError({ statusCode: 500, statusMessage: error.message })
-  return normalizeAmount(data)
+  const { error } = await client.rpc('edit_transaction', { p_id: id, p_patch: patch as unknown as Json })
+  if (error) throw createError({ statusCode: 400, statusMessage: error.message })
 }
 
+// Atomic delete: reverse balance effect + remove row in one DB transaction.
 export async function deleteTransaction(event: H3Event, id: string) {
   const client = await serverSupabaseClient(event)
-  const { error } = await client.from('transactions').delete().eq('id', id)
-  if (error) throw createError({ statusCode: 500, statusMessage: error.message })
+  const { error } = await client.rpc('delete_transaction', { p_id: id })
+  if (error) throw createError({ statusCode: 400, statusMessage: error.message })
 }

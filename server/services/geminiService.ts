@@ -136,33 +136,41 @@ async function callGemini(
 }
 
 export async function parseTransaction(event: H3Event, text: string): Promise<GeminiParseResult> {
-  const config = useRuntimeConfig()
-  const genAI = new GoogleGenerativeAI(config.geminiApiKey)
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
+  // Whole body is guarded: setup (client init + loadDynamicPromptData) used to run outside the
+  // retry loop, so a missing API key or a DB fetch failure threw past the caller and the user got
+  // no reply at all. parseTransaction must ALWAYS resolve to a result, never throw.
+  try {
+    const config = useRuntimeConfig()
+    const genAI = new GoogleGenerativeAI(config.geminiApiKey)
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
 
-  const { walletNames, expenseCategories, incomeCategories } = await loadDynamicPromptData(event)
-  const systemPrompt = buildSystemPrompt(walletNames, expenseCategories, incomeCategories)
+    const { walletNames, expenseCategories, incomeCategories } = await loadDynamicPromptData(event)
+    const systemPrompt = buildSystemPrompt(walletNames, expenseCategories, incomeCategories)
 
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      return await callGemini(model, systemPrompt, text)
-    } catch (error) {
-      if (isRateLimitError(error)) {
-        console.error('Gemini rate limit hit')
-        return errorResult('rate_limit')
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        return await callGemini(model, systemPrompt, text)
+      } catch (error) {
+        if (isRateLimitError(error)) {
+          console.error('Gemini rate limit hit')
+          return errorResult('rate_limit')
+        }
+
+        const isLastAttempt = attempt === MAX_RETRIES
+        if (isLastAttempt) {
+          console.error('Gemini parse error (final attempt):', error)
+          if (error instanceof SyntaxError) return errorResult('parse')
+          if (error instanceof TypeError || (error instanceof Error && error.message.includes('fetch'))) return errorResult('network')
+          return errorResult('unknown_error')
+        }
+
+        console.warn(`Gemini attempt ${attempt + 1} failed, retrying...`)
       }
-
-      const isLastAttempt = attempt === MAX_RETRIES
-      if (isLastAttempt) {
-        console.error('Gemini parse error (final attempt):', error)
-        if (error instanceof SyntaxError) return errorResult('parse')
-        if (error instanceof TypeError || (error instanceof Error && error.message.includes('fetch'))) return errorResult('network')
-        return errorResult('unknown_error')
-      }
-
-      console.warn(`Gemini attempt ${attempt + 1} failed, retrying...`)
     }
-  }
 
-  return errorResult('unknown_error')
+    return errorResult('unknown_error')
+  } catch (error) {
+    console.error('Gemini setup error (prompt data / client init):', error)
+    return errorResult('unknown_error')
+  }
 }

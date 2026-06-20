@@ -1,48 +1,32 @@
+import { z } from 'zod'
 import { addTransaction } from '~~/server/services/transactionService'
 import { ok } from '~~/server/utils/response'
+import { readZodBody } from '~~/server/utils/validation'
 
-const VALID_TYPES = ['income', 'expense', 'transfer'] as const
+const baseFields = {
+  amount: z.number().finite().positive('Jumlah harus lebih dari 0'),
+  wallet_id: z.string().uuid('Wallet tidak valid'),
+  note: z.string().trim().max(500).optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tanggal tidak valid').optional(),
+  source: z.enum(['web', 'telegram']).optional(),
+}
 
-export default defineEventHandler(async (event) => {
-  const body = await readBody(event)
-
-  if (!VALID_TYPES.includes(body.type)) {
-    throw createError({ statusCode: 400, statusMessage: 'type must be income, expense, or transfer' })
-  }
-
-  const amount = Number(body.amount)
-  if (!Number.isFinite(amount) || amount <= 0) {
-    throw createError({ statusCode: 400, statusMessage: 'amount must be greater than 0' })
-  }
-
-  if (!body.wallet_id) {
-    throw createError({ statusCode: 400, statusMessage: 'wallet_id is required' })
-  }
-
-  if (body.type === 'transfer') {
-    if (!body.wallet_to_id) {
-      throw createError({ statusCode: 400, statusMessage: 'wallet_to_id is required for transfer' })
+// Transfer needs a destination wallet; income/expense need a category.
+const schema = z
+  .discriminatedUnion('type', [
+    z.object({ type: z.literal('transfer'), ...baseFields, wallet_to_id: z.string().uuid('Wallet tujuan tidak valid') }),
+    z.object({ type: z.literal('income'), ...baseFields, category_id: z.string().uuid('Kategori tidak valid') }),
+    z.object({ type: z.literal('expense'), ...baseFields, category_id: z.string().uuid('Kategori tidak valid') }),
+  ])
+  .superRefine((data, ctx) => {
+    if (data.type === 'transfer' && data.wallet_to_id === data.wallet_id) {
+      ctx.addIssue({ code: 'custom', message: 'Wallet tujuan harus berbeda dari wallet asal', path: ['wallet_to_id'] })
     }
-    if (body.wallet_to_id === body.wallet_id) {
-      throw createError({ statusCode: 400, statusMessage: 'wallet_to_id must differ from wallet_id' })
-    }
-  } else {
-    if (!body.category_id) {
-      throw createError({ statusCode: 400, statusMessage: 'category_id is required' })
-    }
-  }
-
-  const transaction = await addTransaction(event, {
-    type: body.type,
-    amount,
-    wallet_id: body.wallet_id,
-    wallet_to_id: body.type === 'transfer' ? body.wallet_to_id : undefined,
-    category_id: body.type === 'transfer' ? undefined : body.category_id,
-    note: body.note || undefined,
-    date: body.date || undefined,
-    source: body.source || undefined,
   })
 
+export default defineEventHandler(async (event) => {
+  const data = await readZodBody(event, schema)
+  const transaction = await addTransaction(event, data)
   setResponseStatus(event, 201)
   return ok(transaction)
 })

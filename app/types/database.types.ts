@@ -558,6 +558,45 @@ export type Database = {
         }
         Returns: Json
       }
+      delete_transaction: { Args: { p_id: string }; Returns: undefined }
+      edit_transaction: {
+        Args: { p_id: string; p_patch: Json }
+        Returns: {
+          amount: number
+          category_id: string | null
+          created_at: string
+          created_by: string
+          date: string
+          id: string
+          note: string | null
+          source: Database["public"]["Enums"]["transaction_source"]
+          type: Database["public"]["Enums"]["transaction_type"]
+          wallet_id: string
+          wallet_to_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "transactions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      increment_wallet_balance: {
+        Args: { p_delta: number; p_wallet_id: string }
+        Returns: {
+          balance: number
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "wallets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       match_ingredients: {
         Args: { p_limit?: number; p_query: string }
         Returns: {

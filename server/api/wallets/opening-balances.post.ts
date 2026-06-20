@@ -1,13 +1,21 @@
+import { z } from 'zod'
 import { setOpeningBalances } from '~~/server/services/walletService'
 import { ok } from '~~/server/utils/response'
+import { readZodBody } from '~~/server/utils/validation'
+
+const schema = z.object({
+  balances: z
+    .array(
+      z.object({
+        wallet_id: z.string().uuid('Wallet tidak valid'),
+        amount: z.number().finite('Saldo tidak valid'),
+      }),
+    )
+    .min(1, 'Minimal satu saldo'),
+})
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody(event)
-
-  if (!Array.isArray(body.balances)) {
-    throw createError({ statusCode: 400, statusMessage: 'balances must be an array' })
-  }
-
-  const result = await setOpeningBalances(event, body.balances)
+  const { balances } = await readZodBody(event, schema)
+  const result = await setOpeningBalances(event, balances)
   return ok(result)
 })

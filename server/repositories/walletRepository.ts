@@ -75,24 +75,11 @@ export async function setOpeningBalance(event: H3Event, id: string, amount: numb
   return normalizeBalance(data)
 }
 
-// Read-then-write: not atomic under concurrent requests.
-// For a single-outlet app with 3 users this is acceptable.
+// Atomic single-statement balance change via the increment_wallet_balance() SQL function
+// (no read-then-write race).
 export async function adjustWalletBalance(event: H3Event, id: string, delta: number, client?: SupabaseClient) {
   const supabase = await resolveClient(event, client)
-  const { data: wallet, error: fetchError } = await supabase
-    .from('wallets')
-    .select('balance')
-    .eq('id', id)
-    .single()
-  if (fetchError) throw createError({ statusCode: 404, statusMessage: 'Wallet not found' })
-
-  const newBalance = Number(wallet.balance) + delta
-  const { data, error } = await supabase
-    .from('wallets')
-    .update({ balance: newBalance })
-    .eq('id', id)
-    .select()
-    .single()
+  const { data, error } = await supabase.rpc('increment_wallet_balance', { p_wallet_id: id, p_delta: delta })
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })
   return normalizeBalance(data)
 }

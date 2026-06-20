@@ -4,7 +4,7 @@ import {
   getOrCreateSession,
 } from '~~/server/repositories/botSessionRepository'
 import { findByTelegramId } from '~~/server/repositories/userRepository'
-import { answerCallbackQuery } from '~~/server/services/telegramService'
+import { answerCallbackQuery, sendMessage } from '~~/server/services/telegramService'
 import { handleTextMessage } from './messageHandler'
 import { handleCallbackQuery } from './callbackHandler'
 
@@ -26,19 +26,30 @@ export async function handleUpdate(event: H3Event, update: TelegramUpdate): Prom
   const user = await findByTelegramId(event, String(telegramUserId), client)
   if (!user) return
 
-  const session = await getOrCreateSession(event, String(telegramUserId))
+  // Safety net: any unhandled error in the flow must still leave the user with a reply,
+  // otherwise the webhook returns {ok:true} and Telegram never retries → silent drop.
+  try {
+    const session = await getOrCreateSession(event, String(telegramUserId))
 
-  if (update.callback_query) {
-    await answerCallbackQuery(update.callback_query.id)
-    await handleCallbackQuery(
-      event,
-      user as AppUser,
-      session,
-      chatId,
-      update.callback_query.data,
-      update.callback_query.message.message_id,
-    )
-  } else if (update.message?.text) {
-    await handleTextMessage(event, user as AppUser, session, chatId, update.message.text)
+    if (update.callback_query) {
+      await answerCallbackQuery(update.callback_query.id)
+      await handleCallbackQuery(
+        event,
+        user as AppUser,
+        session,
+        chatId,
+        update.callback_query.data,
+        update.callback_query.message.message_id,
+      )
+    } else if (update.message?.text) {
+      await handleTextMessage(event, user as AppUser, session, chatId, update.message.text)
+    }
+  } catch (error) {
+    console.error('handleUpdate error:', error)
+    try {
+      await sendMessage(chatId, 'Maaf, ada kesalahan di sistem. Coba lagi sebentar lagi ya.')
+    } catch {
+      // Telegram send failed too — nothing more we can do.
+    }
   }
 }

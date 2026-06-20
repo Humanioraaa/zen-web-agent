@@ -9,7 +9,7 @@ import {
   getTransactions,
   createTransaction,
   getTransactionById,
-  updateTransaction,
+  editTransactionAtomic,
   deleteTransaction,
 } from '../repositories/transactionRepository'
 import { adjustWalletBalance } from '../repositories/walletRepository'
@@ -31,15 +31,6 @@ async function applyBalanceEffect(event: H3Event, tx: BalanceEffect, direction: 
   } else if (tx.type === 'transfer' && tx.wallet_to_id) {
     await adjustWalletBalance(event, tx.wallet_id, -delta, client)
     await adjustWalletBalance(event, tx.wallet_to_id, delta, client)
-  }
-}
-
-function extractBalanceEffect(tx: { type: string; amount: number; wallet_id: string; wallet_to_id?: string | null }): BalanceEffect {
-  return {
-    type: tx.type,
-    amount: tx.amount,
-    wallet_id: tx.wallet_id,
-    wallet_to_id: tx.wallet_to_id,
   }
 }
 
@@ -105,9 +96,9 @@ export async function editTransaction(
   if (!authUser) throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
 
   const before = await getTransactionById(event, id)
-  await applyBalanceEffect(event, extractBalanceEffect(before), -1)
-  const after = await updateTransaction(event, id, payload)
-  await applyBalanceEffect(event, extractBalanceEffect(after), 1)
+  // Atomic in the DB: reverses the old balance effect, applies the new one, updates the row.
+  await editTransactionAtomic(event, id, payload)
+  const after = await getTransactionById(event, id)
 
   await createAuditLog(event, {
     entityType: 'transaction',
@@ -127,7 +118,8 @@ export async function removeTransaction(event: H3Event, id: string) {
 
   const transaction = await getTransactionById(event, id)
 
-  await applyBalanceEffect(event, extractBalanceEffect(transaction), -1)
+  // Atomic in the DB: reverses the balance effect and deletes the row in one transaction.
+  await deleteTransaction(event, id)
 
   await createAuditLog(event, {
     entityType: 'transaction',
@@ -136,6 +128,4 @@ export async function removeTransaction(event: H3Event, id: string) {
     before: transaction,
     performedBy: authUser.sub,
   })
-
-  await deleteTransaction(event, id)
 }
