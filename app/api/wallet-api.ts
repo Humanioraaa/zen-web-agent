@@ -1,4 +1,4 @@
-import type { ApiArray } from '~/types/base'
+import type { ApiArray, ApiItem } from '~/types/base'
 import type { Wallet } from '~/types/models'
 
 export function useWalletApi() {
@@ -7,5 +7,7 @@ export function useWalletApi() {
 
   const list = () => apiFetch<ApiArray<Wallet>>('/api/wallets')
 
-  return { list }
+  const summary = () => apiFetch<ApiItem<{ total: number }>>('/api/wallets/summary')
+
+  return { list, summary }
 }

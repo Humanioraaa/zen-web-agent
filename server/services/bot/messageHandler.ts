@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto'
 import { serverSupabaseServiceRole } from '#supabase/server'
 import type { H3Event, AppUser, BotSession } from './types'
 import {
@@ -289,6 +290,16 @@ async function handleTransactionInput(
   await sendConfirmationMessage(event, chatId, session.context)
 }
 
+// Constant-time PIN compare; also rejects when BOT_PIN is unset so a blank config
+// can't be satisfied by a blank input.
+function pinMatches(input: string, correct: string): boolean {
+  if (!correct) return false
+  const a = Buffer.from(input)
+  const b = Buffer.from(correct)
+  if (a.length !== b.length) return false
+  return timingSafeEqual(a, b)
+}
+
 async function handlePinInput(
   event: H3Event,
   user: AppUser,
@@ -299,7 +310,7 @@ async function handlePinInput(
   const correctPin = useRuntimeConfig().botPin
   const attempts = (session.context?.pin_attempts ?? 0) + 1
 
-  if (text.trim() === correctPin) {
+  if (pinMatches(text.trim(), correctPin)) {
     if (session.context?.kind === 'restock') {
       await finalizeRestock(event, user, session, chatId)
     } else {

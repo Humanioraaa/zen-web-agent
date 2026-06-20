@@ -13,6 +13,13 @@ export async function getWallets(event: H3Event) {
   return getAllWallets(event)
 }
 
+// Total balance across active wallets — computed on the server (FE only displays it).
+export async function getWalletsTotal(event: H3Event) {
+  const wallets = await getAllWallets(event)
+  const total = wallets.reduce((sum, w) => sum + w.balance, 0)
+  return { total }
+}
+
 export async function getWallet(event: H3Event, id: string) {
   return getWalletById(event, id)
 }

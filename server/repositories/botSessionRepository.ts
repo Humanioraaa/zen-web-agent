@@ -54,7 +54,7 @@ export async function getOrCreateSession(event: H3Event, telegramUserId: string)
 
   const { data } = await client
     .from('bot_sessions')
-    .select('*')
+    .select('telegram_user_id, state, context, updated_at')
     .eq('telegram_user_id', telegramUserId)
     .single()
 
@@ -70,7 +70,7 @@ export async function getOrCreateSession(event: H3Event, telegramUserId: string)
   const { data: created, error } = await client
     .from('bot_sessions')
     .insert({ telegram_user_id: telegramUserId, state: 'IDLE' })
-    .select()
+    .select('telegram_user_id, state, context, updated_at')
     .single()
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })
 

@@ -12,7 +12,7 @@ function normalizeAmount<T extends { amount: unknown }>(row: T): T & { amount: n
 }
 
 const TRANSACTION_SELECT = `
-  *,
+  id, type, amount, wallet_id, wallet_to_id, category_id, note, date, source, created_by, created_at,
   wallet:wallets!wallet_id(id, name),
   wallet_to:wallets!wallet_to_id(id, name),
   category:categories(id, name, type),

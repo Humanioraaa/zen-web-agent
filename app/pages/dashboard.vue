@@ -61,21 +61,22 @@
 </template>
 
 <script setup lang="ts">
-import type { Wallet, TransactionRecord } from '~/types/models'
+import type { TransactionRecord } from '~/types/models'
+import { useWalletApi } from '~/api/wallet-api'
 
 const { formatRupiah } = useFormatRupiah()
+const walletApi = useWalletApi()
 
-const { data: walletsData, pending: walletsPending } = await useFetch<{ data: Wallet[] }>('/api/wallets')
+const { data: walletsData, pending: walletsPending } = await useAsyncData('dashboard-wallets', () => walletApi.list())
+const { data: totalData } = await useAsyncData('dashboard-total', () => walletApi.summary())
 const { data: summaryData, pending: summaryPending } = await useFetch<{ data: { income: number; expense: number } }>('/api/transactions/summary')
 const { data: recentData, pending: recentPending } = await useFetch<{ data: TransactionRecord[] }>('/api/transactions/recent')
 
 const wallets = computed(() => walletsData.value?.data ?? [])
+// Total comes from the backend (BE computes, FE displays).
+const totalBalance = computed(() => totalData.value?.data.total ?? 0)
 const summary = computed(() => summaryData.value?.data ?? null)
 const recentTransactions = computed(() => recentData.value?.data ?? [])
-
-const totalBalance = computed(() =>
-  wallets.value.reduce((sum, w) => sum + w.balance, 0),
-)
 </script>
 
 <style scoped>

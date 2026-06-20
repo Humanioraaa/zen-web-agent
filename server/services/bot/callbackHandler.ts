@@ -78,6 +78,8 @@ export async function handleCallbackQuery(
 
   if (callbackData === 'restock_anomaly_reqty' && session.state === 'AWAITING_RESTOCK_ANOMALY') {
     session.state = 'AWAITING_RESTOCK_QTY'
+    // Reset the prior anomaly decision so a stale `true` can't carry into the recomputed commit.
+    if (session.context) session.context.accept_price = false
     await saveSession(event, session)
     await editMessage(chatId, messageId, 'Oke, berapa jumlah yang benar?\nContoh: 2 pack atau 2000 ml')
     return
