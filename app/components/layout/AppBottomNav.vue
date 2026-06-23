@@ -66,6 +66,7 @@ import {
   IconChefHat,
   IconSalad,
   IconToolsKitchen2,
+  IconClipboardList,
   IconSettings,
 } from '@tabler/icons-vue'
 
@@ -75,6 +76,7 @@ const moreOpen = ref(false)
 const moreItems = [
   { path: '/menu', label: 'Menu', icon: IconChefHat },
   { path: '/ingredients', label: 'Bahan Baku', icon: IconSalad },
+  { path: '/stock-opname', label: 'Stock Opname', icon: IconClipboardList },
   { path: '/menu/categories', label: 'Kategori Menu', icon: IconToolsKitchen2 },
   { path: '/settings', label: 'Settings', icon: IconSettings },
 ]

@@ -308,6 +308,45 @@ export type Database = {
           },
         ]
       }
+      period_sales: {
+        Row: {
+          created_at: string
+          id: string
+          menu_id: string
+          qty_sold: number
+          stock_count_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          menu_id: string
+          qty_sold?: number
+          stock_count_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          menu_id?: string
+          qty_sold?: number
+          stock_count_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "period_sales_menu_id_fkey"
+            columns: ["menu_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "period_sales_stock_count_id_fkey"
+            columns: ["stock_count_id"]
+            isOneToOne: false
+            referencedRelation: "stock_counts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recipe_items: {
         Row: {
           id: string
@@ -407,6 +446,104 @@ export type Database = {
             columns: ["ingredient_id"]
             isOneToOne: false
             referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_counts: {
+        Row: {
+          count_date: string
+          created_at: string
+          created_by: string | null
+          finalized_at: string | null
+          id: string
+          note: string | null
+          status: string
+          total_value: number | null
+          updated_at: string
+        }
+        Insert: {
+          count_date?: string
+          created_at?: string
+          created_by?: string | null
+          finalized_at?: string | null
+          id?: string
+          note?: string | null
+          status?: string
+          total_value?: number | null
+          updated_at?: string
+        }
+        Update: {
+          count_date?: string
+          created_at?: string
+          created_by?: string | null
+          finalized_at?: string | null
+          id?: string
+          note?: string | null
+          status?: string
+          total_value?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_counts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_count_items: {
+        Row: {
+          counted_qty: number
+          created_at: string
+          id: string
+          ingredient_id: string
+          line_value: number
+          note: string | null
+          opening_qty: number | null
+          purchased_qty: number | null
+          stock_count_id: string
+          unit_cost_snapshot: number
+        }
+        Insert: {
+          counted_qty?: number
+          created_at?: string
+          id?: string
+          ingredient_id: string
+          line_value?: number
+          note?: string | null
+          opening_qty?: number | null
+          purchased_qty?: number | null
+          stock_count_id: string
+          unit_cost_snapshot?: number
+        }
+        Update: {
+          counted_qty?: number
+          created_at?: string
+          id?: string
+          ingredient_id?: string
+          line_value?: number
+          note?: string | null
+          opening_qty?: number | null
+          purchased_qty?: number | null
+          stock_count_id?: string
+          unit_cost_snapshot?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_count_items_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_count_items_stock_count_id_fkey"
+            columns: ["stock_count_id"]
+            isOneToOne: false
+            referencedRelation: "stock_counts"
             referencedColumns: ["id"]
           },
         ]
@@ -557,6 +694,10 @@ export type Database = {
           p_wallet_id: string
         }
         Returns: Json
+      }
+      create_stock_count: {
+        Args: { p_count_date: string; p_created_by: string; p_note: string }
+        Returns: string
       }
       delete_transaction: { Args: { p_id: string }; Returns: undefined }
       edit_transaction: {
