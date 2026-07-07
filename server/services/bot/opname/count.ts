@@ -4,7 +4,7 @@ import { saveSession } from '~~/server/repositories/botSessionRepository'
 import { saveStockCountItems } from '~~/server/repositories/stock-count-repository'
 import { parseTieredQty } from '~~/server/utils/parseTieredQty'
 import { sendMessage } from '~~/server/services/telegramService'
-import { loadItems, fetchTiers, fmtNum, nextUncounted } from './helpers'
+import { loadItems, fetchTiers, fmtNum, nextUncounted, tierExample, tierLabels } from './helpers'
 import { showCurrentItem } from './present'
 
 // A physical count for the current item: tiered text → base → save + advance.
@@ -25,7 +25,14 @@ export async function recordCurrent(
   const tiers = await fetchTiers(event, client, current.ingredient_id)
   const r = parseTieredQty(text, tiers)
   if (r.base === null) {
-    await sendMessage(chatId, `⚠️ ${r.error ?? 'jumlah tidak valid'}. Contoh: <code>3 karton 5 pcs</code> atau <code>4500</code>`)
+    const ex = tierExample(tiers)
+    let m = `⚠️ ${r.error ?? 'jumlah tidak valid'}.\n`
+    m += `Satuan tersedia untuk <b>${current.name}</b>: ${tierLabels(tiers)}.\n`
+    m += ex
+      ? `Contoh: <code>${ex}</code> atau <code>4500</code>.`
+      : `Contoh: <code>4500</code> (${current.base_unit}).`
+    m += `\n<i>Tambah satuan lain (mis. karton/pcs) di web → Bahan → Satuan.</i>`
+    await sendMessage(chatId, m)
     return
   }
   await saveStockCountItems(event, [{ item_id: current.id, counted_qty: r.base }], client)

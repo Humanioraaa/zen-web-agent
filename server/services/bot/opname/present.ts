@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { H3Event, BotSession } from '../types'
 import { saveSession } from '~~/server/repositories/botSessionRepository'
 import { sendMessage } from '~~/server/services/telegramService'
-import { loadItems, fetchTiers, tierHint, nextUncounted, fmtNum } from './helpers'
+import { loadItems, fetchTiers, tierHint, tierExample, nextUncounted, fmtNum } from './helpers'
 
 // Render the current item (or the "all counted" prompt). Optional ack line is prepended.
 export async function showCurrentItem(
@@ -42,12 +42,15 @@ export async function showCurrentItem(
     ? 'belum ada (opname pertama)'
     : `${fmtNum(current.opening_qty)} ${current.base_unit}`
 
+  const ex = tierExample(tiers)
   let msg = head
   msg += `🧾 <b>Opname ${ctx.area_label}</b> — ${countedN}/${total} (sisa ${remaining})\n\n`
   msg += `<b>${current.name}</b> · satuan: ${current.base_unit}\n`
   if (hint) msg += `${hint}\n`
   msg += `Stok awal (opname lalu): ${opening}\n\n`
-  msg += `Ketik jumlah fisik (mis. <code>3 karton 5 pcs</code> atau <code>4500</code>).\n`
+  msg += ex
+    ? `Ketik jumlah fisik (mis. <code>${ex}</code> atau <code>4500</code> ${current.base_unit}).\n`
+    : `Ketik jumlah fisik dalam <b>${current.base_unit}</b> (mis. <code>4500</code>).\n`
   msg += `• <code>skip</code> lewati · <code>sisa</code> daftar sisa · /selesai · /batal`
   await sendMessage(chatId, msg)
 }

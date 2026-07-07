@@ -5,7 +5,7 @@ import { saveStockCountItems } from '~~/server/repositories/stock-count-reposito
 import { parseTieredQty } from '~~/server/utils/parseTieredQty'
 import { matchIngredient } from '~~/server/services/ingredient-match-service'
 import { sendMessage, opnamePendingKeyboard, opnameJumpKeyboard } from '~~/server/services/telegramService'
-import { loadItems, fetchTiers, fmtNum } from './helpers'
+import { loadItems, fetchTiers, fmtNum, tierExample, tierLabels } from './helpers'
 import { showCurrentItem } from './present'
 
 // `[nama] [qty]` — fuzzy-match to an in-area ingredient and set its count out of order,
@@ -88,7 +88,11 @@ export async function applyJump(
   if (r.base === null) {
     ctx.cursor_item_id = item.id
     await saveSession(event, session)
-    await sendMessage(chatId, `⚠️ ${r.error ?? 'jumlah tidak valid'} untuk ${item.name}. Ketik jumlahnya.`)
+    const ex = tierExample(tiers)
+    let m = `⚠️ ${r.error ?? 'jumlah tidak valid'} untuk <b>${item.name}</b>.\n`
+    m += `Satuan tersedia: ${tierLabels(tiers)}.`
+    m += ex ? ` Contoh: <code>${ex}</code> atau <code>4500</code>.` : ` Contoh: <code>4500</code>.`
+    await sendMessage(chatId, m)
     return
   }
   await saveStockCountItems(event, [{ item_id: item.id, counted_qty: r.base }], client)

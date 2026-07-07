@@ -82,6 +82,20 @@ export function tierHint(tiers: TierRow[], baseUnit: string): string {
   return nonBase.map((t) => `1 ${t.label} = ${fmtNum(t.factor_to_base)} ${baseUnit}`).join(' · ')
 }
 
+// Comma list of every accepted unit label (base + tiers) for this ingredient.
+export function tierLabels(tiers: TierRow[]): string {
+  return tiers.map((t) => t.label).join(', ')
+}
+
+// A valid input example built from the ingredient's ACTUAL tiers (never hardcode
+// "karton"/"pcs" — those only exist if the owner set them up in the Satuan UI).
+export function tierExample(tiers: TierRow[]): string {
+  const nb = tiers.filter((t) => !t.is_base).sort((a, b) => b.factor_to_base - a.factor_to_base)
+  if (nb.length >= 2) return `3 ${nb[0]!.label} 5 ${nb[1]!.label}`
+  if (nb.length === 1) return `3 ${nb[0]!.label}`
+  return ''
+}
+
 // Next un-counted item after `afterId`, wrapping to the top (so skipped items come
 // back around at the end). Returns the same item if it's the only one left.
 export function nextUncounted(items: OpnameItem[], afterId: string | null): OpnameItem | null {
