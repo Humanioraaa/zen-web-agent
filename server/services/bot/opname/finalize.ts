@@ -4,7 +4,7 @@ import { saveSession, clearSession } from '~~/server/repositories/botSessionRepo
 import { finalizeAreaOpname, getAreaVarianceSummary } from '~~/server/services/stock-count-service'
 import { sendMessage, opnameFinalizeKeyboard } from '~~/server/services/telegramService'
 import { formatRupiah } from '~~/server/utils/formatRupiah'
-import { loadItems, fmtNum } from './helpers'
+import { loadItems, fmtNum, escapeHtml } from './helpers'
 
 // /selesai — warn if lines are still un-counted, else finalize straight away.
 export async function startFinalize(
@@ -49,13 +49,13 @@ export async function doFinalize(
     const boros = variance.top.filter((v) => v.variance_qty > 0).slice(0, 3)
     if (boros.length) {
       const list = boros
-        .map((v) => `• ${v.name}: +${fmtNum(v.variance_qty)} ${v.base_unit} (${formatRupiah(v.variance_value)})`)
+        .map((v) => `• ${escapeHtml(v.name)}: +${fmtNum(v.variance_qty)} ${v.base_unit} (${formatRupiah(v.variance_value)})`)
         .join('\n')
       msg += `\n\n🔺 <b>Paling boros (pemakaian vs penjualan):</b>\n${list}`
     }
   }
   if (pending.length) {
-    const list = pending.map((p) => `• ${p.name}${p.qty != null ? ` (${fmtNum(p.qty)})` : ''}`).join('\n')
+    const list = pending.map((p) => `• ${escapeHtml(p.name)}${p.qty != null ? ` (${fmtNum(p.qty)})` : ''}`).join('\n')
     msg += `\n\n🆕 <b>Temuan baru (belum ada di web):</b>\n${list}`
     msg += `\n<i>Tambahkan di web app (menu Bahan) beserta harga & kemasan.</i>`
   }

@@ -10,6 +10,7 @@ import { opnameBaseContext } from './helpers'
 import { showCurrentItem, listRemaining } from './present'
 import { recordCurrent, skipCurrent } from './count'
 import { handleJumpByName, applyJump } from './jump'
+import { handleBulkCount } from './bulk'
 import { startFinalize, doFinalize } from './finalize'
 
 // Each command maps to an ingredient category (area). Resolved by name so it stays
@@ -113,6 +114,11 @@ export async function handleOpnameText(
   }
   if (lower === 'sisa' || lower === '/sisa') {
     await listRemaining(event, session, chatId, client)
+    return
+  }
+  // Multi-line message → bulk: each line "nama jumlah" set at once.
+  if (t.includes('\n')) {
+    await handleBulkCount(event, session, chatId, client, t)
     return
   }
   // Number-leading → a physical count for the current item.

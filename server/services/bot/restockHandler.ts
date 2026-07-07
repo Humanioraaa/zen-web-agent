@@ -3,7 +3,7 @@ import type { H3Event, AppUser, BotSession } from './types'
 import { saveSession, clearSession } from '~~/server/repositories/botSessionRepository'
 import { calcRestockPreview, commitRestockForBot } from '~~/server/services/restock-service'
 import { getIngredientUnits } from '~~/server/repositories/ingredient-unit-repository'
-import { parseTieredQty } from '~~/server/utils/parseTieredQty'
+import { parseTieredQty, parseIndoNumber } from '~~/server/utils/parseTieredQty'
 import {
   sendMessage,
   restockConfirmKeyboard,
@@ -16,10 +16,10 @@ const PIN_THRESHOLD = 500_000
 
 // Parse a quantity reply like "2 pack", "2 kemasan", "2000 ml", "1 kg", or bare "2".
 export function parseQty(text: string): { qty_value: number; qty_unit: 'package' | 'base' } | null {
-  const m = text.trim().toLowerCase().match(/^(\d+(?:[.,]\d+)?)\s*([a-z]+)?/)
+  const m = text.trim().toLowerCase().match(/^(\d[\d.,]*)\s*([a-z]+)?/)
   if (!m) return null
-  const value = parseFloat(m[1]!.replace(',', '.'))
-  if (!isFinite(value) || value <= 0) return null
+  const value = parseIndoNumber(m[1]!)
+  if (value === null || value <= 0) return null
   const unit = m[2] ?? ''
 
   const baseUnits: Record<string, number> = { ml: 1, l: 1000, liter: 1000, ltr: 1000, g: 1, gr: 1, gram: 1, kg: 1000, pcs: 1, pc: 1, buah: 1 }
@@ -97,10 +97,10 @@ function resolveRestockQty(
   text: string,
   tiers: { label: string; factor_to_base: number }[],
 ): { qty_value: number; qty_unit: 'package' | 'base' } | null {
-  const bare = text.trim().match(/^(\d+(?:[.,]\d+)?)$/)
+  const bare = text.trim().match(/^(\d[\d.,]*)$/)
   if (bare) {
-    const v = parseFloat(bare[1]!.replace(',', '.'))
-    return v > 0 ? { qty_value: v, qty_unit: 'package' } : null
+    const v = parseIndoNumber(bare[1]!)
+    return v !== null && v > 0 ? { qty_value: v, qty_unit: 'package' } : null
   }
   if (tiers.length) {
     const r = parseTieredQty(text, tiers)

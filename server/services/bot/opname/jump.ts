@@ -5,7 +5,7 @@ import { saveStockCountItems } from '~~/server/repositories/stock-count-reposito
 import { parseTieredQty } from '~~/server/utils/parseTieredQty'
 import { matchIngredient } from '~~/server/services/ingredient-match-service'
 import { sendMessage, opnamePendingKeyboard, opnameJumpKeyboard } from '~~/server/services/telegramService'
-import { loadItems, fetchTiers, fmtNum, tierExample, tierLabels } from './helpers'
+import { loadItems, fetchTiers, fmtNum, tierExample, tierLabels, escapeHtml, splitNameQty } from './helpers'
 import { showCurrentItem } from './present'
 
 // `[nama] [qty]` — fuzzy-match to an in-area ingredient and set its count out of order,
@@ -18,9 +18,7 @@ export async function handleJumpByName(
   text: string,
 ): Promise<void> {
   const ctx = session.context!.opname!
-  const m = text.match(/^(.+?)\s+(\d.*)$/)
-  const name = (m ? m[1]! : text).trim()
-  const qtyText = m ? m[2]!.trim() : null
+  const { name, qty: qtyText } = splitNameQty(text)
 
   const items = await loadItems(event, client, ctx.stock_count_id)
   const sessionIng = new Set(items.map((i) => i.ingredient_id))
@@ -32,13 +30,13 @@ export async function handleJumpByName(
     ctx.pending_qty = qtyText ? parseTieredQty(qtyText, []).base : null
     session.state = 'AWAITING_OPNAME_PENDING'
     await saveSession(event, session)
-    await sendMessage(chatId, `❓ "<b>${name}</b>" tidak ada di daftar bahan. Catat sebagai <b>temuan baru</b>?`, opnamePendingKeyboard())
+    await sendMessage(chatId, `❓ "<b>${escapeHtml(name)}</b>" tidak ada di daftar bahan. Catat sebagai <b>temuan baru</b>?`, opnamePendingKeyboard())
     return
   }
 
   const inArea = match.candidates.filter((c) => sessionIng.has(c.id))
   if (inArea.length === 0) {
-    await sendMessage(chatId, `"${name}" bukan bahan di area ${ctx.area_label} (mungkin ada di area lain). Ketik <code>sisa</code> untuk lihat daftar.`)
+    await sendMessage(chatId, `"${escapeHtml(name)}" bukan bahan di area ${ctx.area_label} (mungkin ada di area lain). Ketik <code>sisa</code> untuk lihat daftar.`)
     return
   }
   // Exact hit that's in this area, or a single in-area candidate → apply directly.
@@ -76,11 +74,19 @@ export async function applyJump(
     return
   }
 
-  // Jump only (no qty) → focus the item and prompt.
+  // Jump only (no qty) → focus the item and prompt. If it was already counted,
+  // show its current value directly (showCurrentItem would skip a counted cursor).
   if (!qtyText) {
     ctx.cursor_item_id = item.id
     await saveSession(event, session)
-    await showCurrentItem(event, session, chatId, client)
+    if (item.counted) {
+      await sendMessage(
+        chatId,
+        `<b>${escapeHtml(item.name)}</b> sudah dihitung: ${fmtNum(item.counted_qty)} ${item.base_unit}.\nKetik jumlah baru untuk koreksi, atau <code>skip</code>/lanjut.`,
+      )
+    } else {
+      await showCurrentItem(event, session, chatId, client)
+    }
     return
   }
   const tiers = await fetchTiers(event, client, item.ingredient_id)
@@ -89,7 +95,7 @@ export async function applyJump(
     ctx.cursor_item_id = item.id
     await saveSession(event, session)
     const ex = tierExample(tiers)
-    let m = `⚠️ ${r.error ?? 'jumlah tidak valid'} untuk <b>${item.name}</b>.\n`
+    let m = `⚠️ ${r.error ?? 'jumlah tidak valid'} untuk <b>${escapeHtml(item.name)}</b>.\n`
     m += `Satuan tersedia: ${tierLabels(tiers)}.`
     m += ex ? ` Contoh: <code>${ex}</code> atau <code>4500</code>.` : ` Contoh: <code>4500</code>.`
     await sendMessage(chatId, m)
@@ -98,6 +104,6 @@ export async function applyJump(
   await saveStockCountItems(event, [{ item_id: item.id, counted_qty: r.base }], client)
   ctx.cursor_item_id = item.id
   await saveSession(event, session)
-  const ack = `✅ ${item.name}: ${fmtNum(r.base)} ${item.base_unit}${item.counted ? ' (diperbarui)' : ''}`
+  const ack = `✅ ${escapeHtml(item.name)}: ${fmtNum(r.base)} ${item.base_unit}${item.counted ? ' (diperbarui)' : ''}`
   await showCurrentItem(event, session, chatId, client, ack)
 }

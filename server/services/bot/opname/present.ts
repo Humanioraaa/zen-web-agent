@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { H3Event, BotSession } from '../types'
 import { saveSession } from '~~/server/repositories/botSessionRepository'
 import { sendMessage } from '~~/server/services/telegramService'
-import { loadItems, fetchTiers, tierHint, tierExample, nextUncounted, fmtNum } from './helpers'
+import { loadItems, fetchTiers, tierHint, tierExample, nextUncounted, fmtNum, escapeHtml } from './helpers'
 
 // Render the current item (or the "all counted" prompt). Optional ack line is prepended.
 export async function showCurrentItem(
@@ -45,7 +45,7 @@ export async function showCurrentItem(
   const ex = tierExample(tiers)
   let msg = head
   msg += `🧾 <b>Opname ${ctx.area_label}</b> — ${countedN}/${total} (sisa ${remaining})\n\n`
-  msg += `<b>${current.name}</b> · satuan: ${current.base_unit}\n`
+  msg += `<b>${escapeHtml(current.name)}</b> · satuan: ${current.base_unit}\n`
   if (hint) msg += `${hint}\n`
   msg += `Stok awal (opname lalu): ${opening}\n\n`
   msg += ex
@@ -68,7 +68,7 @@ export async function listRemaining(
     await sendMessage(chatId, '✅ Semua item sudah dihitung. Ketik /selesai.')
     return
   }
-  const shown = rem.slice(0, 40).map((i) => `• ${i.name}`).join('\n')
+  const shown = rem.slice(0, 40).map((i) => `• ${escapeHtml(i.name)}`).join('\n')
   const more = rem.length > 40 ? `\n…dan ${rem.length - 40} lagi` : ''
   await sendMessage(chatId, `📋 <b>Sisa ${rem.length} item ${ctx.area_label}:</b>\n${shown}${more}`)
 }

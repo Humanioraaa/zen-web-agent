@@ -28,6 +28,7 @@ export const HELP_TEXT = `📖 <b>Panduan Bot Zen Coffee</b>
 • /opname-kitchen — hitung stok Kitchen (54 bahan)
 • /opname-bar — hitung stok Bar (37 bahan)
 • saat menghitung: ketik jumlah (mis. <code>3 karton 5 pcs</code>), <code>skip</code>, <code>sisa</code>, /selesai
+• banyak sekaligus: kirim beberapa baris <code>nama jumlah</code> dalam 1 pesan
 
 ⚙️ <b>Lainnya:</b>
 • kategori baru: Packaging

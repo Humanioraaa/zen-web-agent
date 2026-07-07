@@ -21,6 +21,25 @@ export interface TierRow {
   is_base: boolean
 }
 
+// Escape user/DB text before embedding in a parse_mode=HTML Telegram message, so a
+// literal '<' or '&' can't break the message (Telegram returns 400 → report lost).
+export function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+// Split "nama jumlah" where the quantity is a trailing run of "<number> <unit?>" groups.
+// Anchoring the qty to a number-led trailing sequence (not the FIRST digit) keeps names
+// that contain digits intact, e.g. "Gula Aren 65% 3 kg" -> name "Gula Aren 65%", qty "3 kg".
+// Returns qty=null when the whole string is just a name (no trailing quantity).
+export function splitNameQty(line: string): { name: string; qty: string | null } {
+  const s = line.trim()
+  const m = s.match(/^(.*?)\s+((?:\d[\d.,]*\s*[a-z]*\s*)+)$/i)
+  if (m && m[1]!.trim() && /^\d/.test(m[2]!.trim())) {
+    return { name: m[1]!.trim(), qty: m[2]!.trim() }
+  }
+  return { name: s, qty: null }
+}
+
 // Indonesian number format (dot thousands, comma decimals), locale-free to match
 // formatRupiah and avoid ICU dependence. Up to 2 decimals, trailing zeros trimmed.
 export function fmtNum(n: number): string {

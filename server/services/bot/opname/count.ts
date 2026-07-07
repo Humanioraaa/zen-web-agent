@@ -4,7 +4,7 @@ import { saveSession } from '~~/server/repositories/botSessionRepository'
 import { saveStockCountItems } from '~~/server/repositories/stock-count-repository'
 import { parseTieredQty } from '~~/server/utils/parseTieredQty'
 import { sendMessage } from '~~/server/services/telegramService'
-import { loadItems, fetchTiers, fmtNum, nextUncounted, tierExample, tierLabels } from './helpers'
+import { loadItems, fetchTiers, fmtNum, nextUncounted, tierExample, tierLabels, escapeHtml } from './helpers'
 import { showCurrentItem } from './present'
 
 // A physical count for the current item: tiered text → base → save + advance.
@@ -27,7 +27,7 @@ export async function recordCurrent(
   if (r.base === null) {
     const ex = tierExample(tiers)
     let m = `⚠️ ${r.error ?? 'jumlah tidak valid'}.\n`
-    m += `Satuan tersedia untuk <b>${current.name}</b>: ${tierLabels(tiers)}.\n`
+    m += `Satuan tersedia untuk <b>${escapeHtml(current.name)}</b>: ${tierLabels(tiers)}.\n`
     m += ex
       ? `Contoh: <code>${ex}</code> atau <code>4500</code>.`
       : `Contoh: <code>4500</code> (${current.base_unit}).`
@@ -38,7 +38,7 @@ export async function recordCurrent(
   await saveStockCountItems(event, [{ item_id: current.id, counted_qty: r.base }], client)
   ctx.cursor_item_id = current.id
   await saveSession(event, session)
-  await showCurrentItem(event, session, chatId, client, `✅ ${current.name}: ${fmtNum(r.base)} ${current.base_unit}`)
+  await showCurrentItem(event, session, chatId, client, `✅ ${escapeHtml(current.name)}: ${fmtNum(r.base)} ${current.base_unit}`)
 }
 
 // Leave the current item un-counted and move to the next un-counted one.
@@ -58,11 +58,11 @@ export async function skipCurrent(
   }
   if (next.id === currentId) {
     const cur = items.find((i) => i.id === currentId)
-    await sendMessage(chatId, `Tinggal <b>${cur?.name ?? 'ini'}</b> yang belum dihitung. Ketik jumlah, atau /selesai untuk skip sisanya.`)
+    await sendMessage(chatId, `Tinggal <b>${escapeHtml(cur?.name ?? 'ini')}</b> yang belum dihitung. Ketik jumlah, atau /selesai untuk skip sisanya.`)
     return
   }
   const cur = items.find((i) => i.id === currentId)
   ctx.cursor_item_id = next.id
   await saveSession(event, session)
-  await showCurrentItem(event, session, chatId, client, cur ? `⏭ ${cur.name} di-skip (bisa dihitung lagi nanti).` : undefined)
+  await showCurrentItem(event, session, chatId, client, cur ? `⏭ ${escapeHtml(cur.name)} di-skip (bisa dihitung lagi nanti).` : undefined)
 }

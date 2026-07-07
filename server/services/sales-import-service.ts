@@ -84,9 +84,13 @@ export async function buildSalesImportPreview(
     const existing = matchedByMenu.get(hit.id)
     if (existing) {
       existing.qty_sold += it.qty
-      if (existing.confidence === 'fuzzy' && confidence === 'exact') {
-        existing.confidence = 'exact'
-        existing.similarity = null
+      // If ANY contributing KP row was fuzzy, keep the merged line flagged 'fuzzy' so it
+      // stays in the owner's review list — never silently upgrade a mixed line to 'exact'.
+      if (confidence === 'fuzzy') {
+        existing.confidence = 'fuzzy'
+        existing.similarity = existing.similarity === null
+          ? similarity
+          : Math.min(existing.similarity, similarity ?? existing.similarity)
       }
     } else {
       const line: SalesImportMatchedLine = {
