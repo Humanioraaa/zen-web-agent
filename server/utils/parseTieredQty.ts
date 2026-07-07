@@ -43,8 +43,12 @@ export function parseIndoNumber(raw: string): number | null {
 //   - trailing junk ("3 karton abc") is rejected,
 //   - a malformed number ("1.500.00") is rejected.
 export function parseTieredQty(text: string, tiers: TierDef[]): ParseTieredResult {
-  const norm = text.trim().toLowerCase()
+  let norm = text.trim().toLowerCase()
   if (!norm) return { base: null, error: 'kosong' }
+
+  // Tolerate natural connectors between tiers ("3 karton dan 500 ml", "3 karton + 500 ml").
+  // NOT "," — that's the Indonesian decimal separator (4,5).
+  norm = norm.replace(/\s+dan\s+/g, ' ').replace(/\s*[+&]\s*/g, ' ').trim()
 
   // Shape guard: only "<number> <unit?>" groups, number-led, nothing else.
   if (!/^(\s*\d[\d.,]*\s*[a-z]*\s*)+$/.test(norm)) {
