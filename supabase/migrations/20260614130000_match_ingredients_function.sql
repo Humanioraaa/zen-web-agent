@@ -4,6 +4,8 @@
 -- any exact (case-insensitive) name match. Used by the bot to resolve typos.
 -- ============================================================================
 
+create extension if not exists pg_trgm with schema public;
+
 create or replace function public.match_ingredients(p_query text, p_limit int default 5)
 returns table (
   id uuid,
