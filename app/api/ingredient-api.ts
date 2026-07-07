@@ -1,5 +1,5 @@
 import type { ApiArray, ApiItem } from '~/types/base'
-import type { Ingredient, IngredientCreateInput, IngredientUpdateInput } from '~/types/ingredient'
+import type { Ingredient, IngredientCreateInput, IngredientUpdateInput, IngredientUnit } from '~/types/ingredient'
 import type { PriceHistoryPoint } from '~/types/restock'
 
 export function useIngredientApi() {
@@ -31,5 +31,10 @@ export function useIngredientApi() {
       body: { package_size: packageSize, package_cost: packageCost },
     })
 
-  return { list, get, priceHistory, create, update, remove, calcUnitCost }
+  const units = (id: string) => apiFetch<ApiArray<IngredientUnit>>(`/api/ingredients/${id}/units`)
+
+  const saveUnits = (id: string, tiers: { label: string; per: number }[]) =>
+    apiFetch<ApiArray<IngredientUnit>>(`/api/ingredients/${id}/units`, { method: 'PUT', body: { tiers } })
+
+  return { list, get, priceHistory, create, update, remove, calcUnitCost, units, saveUnits }
 }

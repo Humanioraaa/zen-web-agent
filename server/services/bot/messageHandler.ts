@@ -18,6 +18,8 @@ import { parseAmount } from '~~/server/utils/parseAmount'
 import { matchIngredient } from '~~/server/services/ingredient-match-service'
 import { handleQuery } from './queryHandler'
 import { startRestockFlow, handleRestockQtyInput, finalizeRestock } from './restockHandler'
+import { startOrderTagFlow } from './orderHandler'
+import { startAreaOpname, handleOpnameText } from './opname'
 import {
   HELP_TEXT,
   geminiErrorMessage,
@@ -40,6 +42,48 @@ export async function handleTextMessage(
 ): Promise<void> {
   if (text === '/help' || text === '/start') {
     await sendMessage(chatId, HELP_TEXT)
+    return
+  }
+
+  // Opname commands start/resume an area count from ANY state (explicit switch wins).
+  // Normalize first: strip a @botname suffix (groups) + lowercase, so
+  // "/Opname-Kitchen@zen_stagging" resolves too.
+  const opnameCmd = text.trim().toLowerCase().split('@')[0] ?? ''
+  if (opnameCmd === '/opname-kitchen') {
+    await startAreaOpname(event, user, session, chatId, 'kitchen')
+    return
+  }
+  if (opnameCmd === '/opname-bar') {
+    await startAreaOpname(event, user, session, chatId, 'bar')
+    return
+  }
+  // Typo or bare /opname* → a helpful hint instead of the generic "tidak paham".
+  if (opnameCmd.startsWith('/opname')) {
+    await sendMessage(chatId, 'Perintah opname: <b>/opname-kitchen</b> (dapur) atau <b>/opname-bar</b>.')
+    return
+  }
+
+  // While a count is active, route everything (incl. its own /batal, /selesai) to the
+  // opname handler — before the generic /batal so pausing keeps the resumable draft.
+  if (session.state.startsWith('AWAITING_OPNAME')) {
+    await handleOpnameText(event, session, chatId, text)
+    return
+  }
+
+  if (text === '/batal') {
+    await clearSession(event, session.telegram_user_id)
+    await sendMessage(chatId, '✅ Dibatalkan. Ketik pesan baru untuk mulai transaksi baru.')
+    return
+  }
+
+  if (text === '/pesanan') {
+    const client = serverSupabaseServiceRole(event)
+    await startOrderTagFlow(event, chatId, client)
+    return
+  }
+
+  if (session.state === 'AWAITING_ORDER_TX') {
+    await handleOrderTxInput(event, user, session, chatId, text)
     return
   }
 
@@ -136,6 +180,8 @@ async function handleTransactionInput(
     qty_value: number | null
     qty_unit: 'package' | 'base' | null
   },
+  customOrderId: string | null = null,
+  customOrderLabel: string | null = null,
 ): Promise<void> {
   const client = serverSupabaseServiceRole(event)
 
@@ -164,8 +210,10 @@ async function handleTransactionInput(
     return
   }
 
-  // Sprint 12 — an ingredient purchase becomes a restock (piggybacks the expense flow)
-  if (parsed.type === 'expense' && parsed.item) {
+  // Sprint 12 — an ingredient purchase becomes a restock (piggybacks the expense flow).
+  // Skipped when tagging a custom order: those costs are one-off, must NOT touch the
+  // ingredient master or restock/stock-opname (they just tag as a plain expense).
+  if (!customOrderId && parsed.type === 'expense' && parsed.item) {
     const match = await matchIngredient(event, parsed.item, client)
     if (match.verdict === 'exact' || match.verdict === 'near') {
       let restockWalletId = walletId
@@ -234,7 +282,7 @@ async function handleTransactionInput(
       if (learned) {
         const categoryRecord = await getCategoryById(event, learned.category_id, client)
         session.state = 'AWAITING_SMART_CONFIRM'
-        session.context = buildContext(parsed, walletId, walletToId, learned.category_id)
+        session.context = buildContext(parsed, walletId, walletToId, learned.category_id, customOrderId, customOrderLabel)
         await saveSession(event, session)
         const label = parsed.item ?? 'item ini'
         await sendMessage(
@@ -254,7 +302,7 @@ async function handleTransactionInput(
       }
 
       session.state = 'AWAITING_CATEGORY_SELECTION'
-      session.context = buildContext(parsed, walletId, walletToId, null)
+      session.context = buildContext(parsed, walletId, walletToId, null, customOrderId, customOrderLabel)
       await saveSession(event, session)
 
       const label = parsed.item ?? 'transaksi ini'
@@ -272,7 +320,7 @@ async function handleTransactionInput(
     const defaultWallet = wallets[0]
     if (defaultWallet) {
       session.state = 'AWAITING_CONFIRMATION'
-      session.context = buildContext(parsed, defaultWallet.id, walletToId, categoryId)
+      session.context = buildContext(parsed, defaultWallet.id, walletToId, categoryId, customOrderId, customOrderLabel)
       await saveSession(event, session)
       await sendConfirmationMessage(event, chatId, session.context)
       return
@@ -285,9 +333,56 @@ async function handleTransactionInput(
   }
 
   session.state = 'AWAITING_CONFIRMATION'
-  session.context = buildContext(parsed, walletId, walletToId, categoryId)
+  session.context = buildContext(parsed, walletId, walletToId, categoryId, customOrderId, customOrderLabel)
   await saveSession(event, session)
   await sendConfirmationMessage(event, chatId, session.context)
+}
+
+// Owner picked a custom order via /pesanan, then typed a payment/cost. Route it through
+// the normal transaction pipeline but carry the custom_order_id so the saved tx is tagged.
+async function handleOrderTxInput(
+  event: H3Event,
+  user: AppUser,
+  session: BotSession,
+  chatId: number,
+  text: string,
+): Promise<void> {
+  const customOrderId = session.context?.custom_order_id ?? null
+  const customOrderLabel = session.context?.custom_order_label ?? null
+  if (!customOrderId) {
+    await clearSession(event, session.telegram_user_id)
+    await sendMessage(chatId, 'Sesi pesanan hilang. Ketik /pesanan lagi.')
+    return
+  }
+
+  const parsed = await parseTransaction(event, text)
+  if (parsed.type === 'income' || parsed.type === 'expense') {
+    await handleTransactionInput(
+      event,
+      user,
+      session,
+      chatId,
+      {
+        type: parsed.type,
+        amount: parsed.amount,
+        wallet: parsed.wallet,
+        wallet_to: null,
+        category: parsed.category,
+        item: parsed.item,
+        qty_value: null,
+        qty_unit: null,
+      },
+      customOrderId,
+      customOrderLabel,
+    )
+    return
+  }
+
+  // transfer / query / unknown / error can't tag an order — keep the session, re-prompt.
+  await sendMessage(
+    chatId,
+    'Untuk pesanan, ketik <b>pembayaran</b> atau <b>biaya</b>.\nContoh: <i>gopay masuk 500k</i> atau <i>beli bahan 300k</i>\n(atau /batal)',
+  )
 }
 
 // Constant-time PIN compare; also rejects when BOT_PIN is unset so a blank config

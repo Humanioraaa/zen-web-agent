@@ -2,6 +2,8 @@ import { serverSupabaseServiceRole } from '#supabase/server'
 import type { H3Event, AppUser, BotSession } from './types'
 import { saveSession, clearSession } from '~~/server/repositories/botSessionRepository'
 import { calcRestockPreview, commitRestockForBot } from '~~/server/services/restock-service'
+import { getIngredientUnits } from '~~/server/repositories/ingredient-unit-repository'
+import { parseTieredQty } from '~~/server/utils/parseTieredQty'
 import {
   sendMessage,
   restockConfirmKeyboard,
@@ -76,7 +78,7 @@ export async function startRestockFlow(
     accept_price: false,
   }
 
-  if (data.qty_value && data.qty_unit) {
+  if (data.qty_value != null && data.qty_unit != null) {
     await presentPreview(event, session, chatId)
     return
   }
@@ -84,8 +86,27 @@ export async function startRestockFlow(
   await saveSession(event, session)
   await sendMessage(
     chatId,
-    `Berapa <b>${data.ingredient_name}</b> yang dibeli?\nContoh: <code>2 pack</code> atau <code>2000 ml</code>`,
+    `Berapa <b>${data.ingredient_name}</b> yang dibeli?\nContoh: <code>2 karton</code>, <code>2 kemasan</code>, atau <code>2000 ml</code>`,
   )
+}
+
+// Resolve a restock qty reply, tier-aware. A bare number = package count (keeps the
+// old bot behavior); a tier expression ("2 karton", "3 kemasan 40 ml") converts to
+// base via the ingredient's unit tiers; otherwise fall back to the alias parser.
+function resolveRestockQty(
+  text: string,
+  tiers: { label: string; factor_to_base: number }[],
+): { qty_value: number; qty_unit: 'package' | 'base' } | null {
+  const bare = text.trim().match(/^(\d+(?:[.,]\d+)?)$/)
+  if (bare) {
+    const v = parseFloat(bare[1]!.replace(',', '.'))
+    return v > 0 ? { qty_value: v, qty_unit: 'package' } : null
+  }
+  if (tiers.length) {
+    const r = parseTieredQty(text, tiers)
+    if (r.base != null) return { qty_value: r.base, qty_unit: 'base' }
+  }
+  return parseQty(text)
 }
 
 // Quantity text reply during AWAITING_RESTOCK_QTY.
@@ -95,9 +116,14 @@ export async function handleRestockQtyInput(
   chatId: number,
   text: string,
 ): Promise<void> {
-  const qty = parseQty(text)
+  const ctx = session.context
+  const client = serverSupabaseServiceRole(event)
+  const tierRows = ctx?.ingredient_id ? await getIngredientUnits(event, ctx.ingredient_id, client) : []
+  const tiers = tierRows.map((t) => ({ label: t.label, factor_to_base: Number(t.factor_to_base) }))
+
+  const qty = resolveRestockQty(text, tiers)
   if (!qty) {
-    await sendMessage(chatId, 'Format jumlah tidak jelas. Contoh: 2 pack, 2 kemasan, 2000 ml')
+    await sendMessage(chatId, 'Format jumlah tidak jelas. Contoh: 2 karton, 2 kemasan, 2000 ml')
     return
   }
   if (session.context) {
@@ -113,16 +139,22 @@ export async function presentPreview(event: H3Event, session: BotSession, chatId
   if (!ctx || !ctx.ingredient_id || !ctx.qty_value || !ctx.qty_unit || ctx.total_cost == null) return
 
   const client = serverSupabaseServiceRole(event)
-  const preview = await calcRestockPreview(
-    event,
-    {
-      ingredient_id: ctx.ingredient_id,
-      qty_value: ctx.qty_value,
-      qty_unit: ctx.qty_unit,
-      total_cost: ctx.total_cost,
-    },
-    client,
-  )
+  let preview: RestockPreview
+  try {
+    preview = await calcRestockPreview(
+      event,
+      {
+        ingredient_id: ctx.ingredient_id,
+        qty_value: ctx.qty_value,
+        qty_unit: ctx.qty_unit,
+        total_cost: ctx.total_cost,
+      },
+      client,
+    )
+  } catch {
+    await sendMessage(chatId, 'Jumlah tidak valid. Coba lagi: <code>2 karton</code>, <code>2 kemasan</code>, atau <code>2000 ml</code>')
+    return
+  }
 
   if (preview.verdict === 'anomaly') {
     session.state = 'AWAITING_RESTOCK_ANOMALY'

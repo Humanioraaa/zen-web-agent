@@ -101,6 +101,42 @@ export function disambiguationKeyboard(candidates: { id: string; name: string }[
   return rows
 }
 
+export function customOrderKeyboard(orders: { id: string; label: string }[]): InlineKeyboard {
+  const rows: InlineKeyboard = orders.map((o) => [
+    { text: `📦 ${o.label}`, callback_data: `copick_${o.id}` },
+  ])
+  rows.push([{ text: '❌ Batal', callback_data: 'copick_none' }])
+  return rows
+}
+
+// --- Sprint 16 F3: stock-opname bot ---
+
+export function opnamePendingKeyboard(): InlineKeyboard {
+  return [
+    [
+      { text: '🆕 Ya, catat temuan', callback_data: 'opn_pending_yes' },
+      { text: '✖️ Bukan', callback_data: 'opn_pending_no' },
+    ],
+  ]
+}
+
+export function opnameJumpKeyboard(candidates: { id: string; name: string }[]): InlineKeyboard {
+  const rows: InlineKeyboard = candidates.map((c) => [
+    { text: `➡️ ${c.name}`, callback_data: `opnjump_${c.id}` },
+  ])
+  rows.push([{ text: '❌ Batal', callback_data: 'opn_jump_none' }])
+  return rows
+}
+
+export function opnameFinalizeKeyboard(): InlineKeyboard {
+  return [
+    [
+      { text: '✅ Ya, finalisasi', callback_data: 'opn_finalize_yes' },
+      { text: '↩️ Lanjut hitung', callback_data: 'opn_finalize_no' },
+    ],
+  ]
+}
+
 export function categoryKeyboard(categories: { id: string; name: string }[]): InlineKeyboard {
   const rows: InlineKeyboard = []
   for (let i = 0; i < categories.length; i += 2) {

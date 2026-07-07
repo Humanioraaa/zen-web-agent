@@ -9,6 +9,7 @@ const baseFields = {
   note: z.string().trim().max(500).optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tanggal tidak valid').optional(),
   source: z.enum(['web', 'telegram']).optional(),
+  custom_order_id: z.string().uuid('Pesanan tidak valid').nullable().optional(),
 }
 
 // Transfer needs a destination wallet; income/expense need a category.

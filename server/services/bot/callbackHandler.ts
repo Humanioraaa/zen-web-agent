@@ -6,6 +6,7 @@ import {
 } from '~~/server/repositories/botSessionRepository'
 import { getCategories } from '~~/server/repositories/categoryRepository'
 import { getIngredientById } from '~~/server/repositories/ingredient-repository'
+import { getCustomOrderById } from '~~/server/repositories/custom-order-repository'
 import {
   sendMessage,
   editMessage,
@@ -15,8 +16,10 @@ import {
   saveTransactionFromSession,
   editConfirmationMessage,
   updateSmartLearning,
+  todayIso,
 } from './utils'
 import { startRestockFlow, commitOrPin } from './restockHandler'
+import { handleOpnameCallback } from './opname'
 
 export async function handleCallbackQuery(
   event: H3Event,
@@ -26,6 +29,46 @@ export async function handleCallbackQuery(
   callbackData: string,
   messageId: number,
 ): Promise<void> {
+  // --- Sprint 16 F3: stock-opname (opn_pending_*, opnjump_*, opn_jump_none, opn_finalize_*) ---
+  if (callbackData.startsWith('opn')) {
+    await handleOpnameCallback(event, session, chatId, callbackData, messageId)
+    return
+  }
+
+  // --- custom-order tagging: owner picked an order to tag a payment/cost onto ---
+  if (callbackData === 'copick_none') {
+    await editMessage(chatId, messageId, '❌ Dibatalkan.')
+    return
+  }
+
+  if (callbackData.startsWith('copick_')) {
+    const orderId = callbackData.replace('copick_', '')
+    const client = serverSupabaseServiceRole(event)
+    const order = await getCustomOrderById(event, orderId, client)
+    session.state = 'AWAITING_ORDER_TX'
+    session.context = {
+      type: 'expense',
+      amount: 0,
+      wallet_id: '',
+      wallet_to_id: null,
+      category_id: null,
+      item: null,
+      note: null,
+      date: todayIso(),
+      pin_attempts: 0,
+      editing_field: null,
+      custom_order_id: order.id,
+      custom_order_label: `${order.item_name} · ${order.customer_name}`,
+    }
+    await saveSession(event, session)
+    await editMessage(
+      chatId,
+      messageId,
+      `📦 Pesanan: <b>${order.item_name}</b> (${order.customer_name})\n\nKetik pembayaran atau biaya:\n• <i>gopay masuk 500k</i> (pembayaran)\n• <i>beli bahan 300k</i> (biaya)`,
+    )
+    return
+  }
+
   // --- Sprint 12: restock disambiguation ---
   if (callbackData === 'disambig_none' && session.state === 'AWAITING_DISAMBIGUATION') {
     await clearSession(event, session.telegram_user_id)

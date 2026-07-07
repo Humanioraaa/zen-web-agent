@@ -6,6 +6,7 @@ import { readZodBody } from '~~/server/utils/validation'
 const schema = z.object({
   count_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tanggal tidak valid').optional(),
   note: z.string().trim().max(200).optional(),
+  category_id: z.string().uuid('Kategori tidak valid').nullable().optional(),
 })
 
 export default defineEventHandler(async (event) => {

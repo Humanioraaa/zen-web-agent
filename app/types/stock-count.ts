@@ -10,6 +10,7 @@ export interface StockCountSummary {
   count_date: string
   status: StockCountStatus
   note: string | null
+  category_name: string | null // area (Bahan Baku Kitchen / Bar); null = full-shop
   total_value: number | null // summed on-hand value (null until finalized)
   item_count: number
   finalized_at: string | null
@@ -23,6 +24,7 @@ export interface StockCountLine {
   ingredient_name: string
   base_unit: string
   category_name: string | null
+  counted: boolean // false = not yet counted (distinct from a counted value of 0)
   counted_qty: number // physical count entered by owner
   opening_qty: number | null // prev finalized count's physical qty (null = first count)
   purchased_qty: number | null // restocks (base unit) since prev count (null = first count)
@@ -43,6 +45,9 @@ export interface StockCountDetail {
   count_date: string
   status: StockCountStatus
   note: string | null
+  category_name: string | null // area label; null = full-shop
+  counted_count: number // lines actually counted
+  item_count: number // total lines in the session
   total_value: number | null
   total_consumed_value: number | null // sum of line consumed_value (period actual COGS)
   total_theoretical_value: number | null // sum of theoretical usage value (pemakaian sah)
@@ -65,9 +70,39 @@ export interface PeriodSalesSaveInput {
   items: { menu_id: string; qty_sold: number }[]
 }
 
+// --- Fase 4: Kasir Pintar sales import (parse KP JSON → match menu → prefill sales) ---
+export interface SalesImportSuggestion {
+  menu_id: string
+  menu_name: string
+  similarity: number
+}
+
+export interface SalesImportMatchedLine {
+  menu_id: string
+  menu_name: string
+  kp_name: string // the KP product name it came from (may differ / be a variant)
+  qty_sold: number
+  confidence: 'exact' | 'fuzzy'
+  similarity: number | null // trigram score when fuzzy; null when exact
+}
+
+export interface SalesImportUnmatchedLine {
+  kp_name: string
+  qty_sold: number
+  suggestions: SalesImportSuggestion[] // nearest menu items (owner picks or ignores)
+}
+
+export interface SalesImportPreview {
+  matched: SalesImportMatchedLine[]
+  unmatched: SalesImportUnmatchedLine[]
+  total_items: number // distinct KP products across the uploaded files
+  total_qty: number // Σ qty across all products (matched + unmatched)
+}
+
 export interface StockCountCreateInput {
   count_date?: string // defaults to today on the server
   note?: string
+  category_id?: string | null // area to count (null/omitted = full-shop)
 }
 
 // Bulk-save physical counts (draft only)

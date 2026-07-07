@@ -67,6 +67,7 @@ import {
   IconSalad,
   IconToolsKitchen2,
   IconClipboardList,
+  IconCake,
   IconSettings,
 } from '@tabler/icons-vue'
 
@@ -74,6 +75,7 @@ const route = useRoute()
 const moreOpen = ref(false)
 
 const moreItems = [
+  { path: '/custom-orders', label: 'Pesanan Custom', icon: IconCake },
   { path: '/menu', label: 'Menu', icon: IconChefHat },
   { path: '/ingredients', label: 'Bahan Baku', icon: IconSalad },
   { path: '/stock-opname', label: 'Stock Opname', icon: IconClipboardList },

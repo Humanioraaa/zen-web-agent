@@ -45,6 +45,8 @@
         </div>
       </div>
 
+      <IngredientUnits :ingredient="ingredient" />
+
       <IngredientRestockForm :ingredient="ingredient" :wallets="wallets" @done="onRestockDone" />
 
       <IngredientPriceHistory :history="history" />

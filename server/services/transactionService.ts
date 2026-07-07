@@ -10,6 +10,7 @@ import {
   createTransaction,
   getTransactionById,
   editTransactionAtomic,
+  setTransactionCustomOrder,
   deleteTransaction,
 } from '../repositories/transactionRepository'
 import { adjustWalletBalance } from '../repositories/walletRepository'
@@ -61,6 +62,7 @@ export async function addTransaction(
     date?: string
     source?: 'web' | 'telegram'
     created_by?: string
+    custom_order_id?: string | null
   },
 ) {
   let createdBy: string
@@ -90,14 +92,25 @@ export async function addTransaction(
 export async function editTransaction(
   event: H3Event,
   id: string,
-  payload: TransactionPatchPayload,
+  payload: TransactionPatchPayload & { custom_order_id?: string | null },
 ) {
   const authUser = await serverSupabaseUser(event)
   if (!authUser) throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
 
   const before = await getTransactionById(event, id)
-  // Atomic in the DB: reverses the old balance effect, applies the new one, updates the row.
-  await editTransactionAtomic(event, id, payload)
+
+  const hasTag = 'custom_order_id' in payload
+  const { custom_order_id, ...balancePatch } = payload
+
+  // Balance-affecting fields go through the atomic reverse+reapply.
+  if (Object.keys(balancePatch).length > 0) {
+    await editTransactionAtomic(event, id, balancePatch)
+  }
+  // Custom-order tag carries no balance effect — plain metadata update.
+  if (hasTag) {
+    await setTransactionCustomOrder(event, id, custom_order_id ?? null)
+  }
+
   const after = await getTransactionById(event, id)
 
   await createAuditLog(event, {

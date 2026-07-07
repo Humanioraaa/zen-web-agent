@@ -12,6 +12,7 @@ const schema = z.object({
   category_id: z.string().uuid('Kategori tidak valid').nullable().optional(),
   note: z.string().trim().max(500).nullable().optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tanggal tidak valid').optional(),
+  custom_order_id: z.string().uuid('Pesanan tidak valid').nullable().optional(),
 })
 
 export default defineEventHandler(async (event) => {

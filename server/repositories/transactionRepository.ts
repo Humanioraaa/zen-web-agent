@@ -122,6 +122,7 @@ export async function createTransaction(
     date?: string
     source?: string
     created_by: string
+    custom_order_id?: string | null
   },
   client?: SupabaseClient,
 ) {
@@ -160,6 +161,23 @@ export interface TransactionPatchPayload {
 export async function editTransactionAtomic(event: H3Event, id: string, patch: TransactionPatchPayload) {
   const client = await serverSupabaseClient(event)
   const { error } = await client.rpc('edit_transaction', { p_id: id, p_patch: patch as unknown as Json })
+  if (error) throw createError({ statusCode: 400, statusMessage: error.message })
+}
+
+// Tag/untag a transaction to a custom order. Metadata only — no wallet-balance
+// effect — so it deliberately bypasses the atomic edit_transaction() path.
+// Pass null to untag.
+export async function setTransactionCustomOrder(
+  event: H3Event,
+  id: string,
+  customOrderId: string | null,
+  client?: SupabaseClient,
+) {
+  const supabase = await resolveClient(event, client)
+  const { error } = await supabase
+    .from('transactions')
+    .update({ custom_order_id: customOrderId })
+    .eq('id', id)
   if (error) throw createError({ statusCode: 400, statusMessage: error.message })
 }
 

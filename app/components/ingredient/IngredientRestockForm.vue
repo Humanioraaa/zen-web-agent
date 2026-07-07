@@ -17,9 +17,8 @@
       </label>
       <label class="form-row">
         <span class="form-label">Satuan</span>
-        <select v-model="form.qty_unit" class="field" :disabled="saving">
-          <option value="package">kemasan</option>
-          <option value="base">{{ ingredient.base_unit }}</option>
+        <select v-model="selectedUnit" class="field" :disabled="saving">
+          <option v-for="u in units" :key="u.id" :value="u.label">{{ u.label }}</option>
         </select>
       </label>
       <label class="form-row">
@@ -86,9 +85,10 @@
 import { IconLoader2, IconShoppingCartPlus } from '@tabler/icons-vue'
 import { useToast } from 'vue-toastification'
 import { useRestockApi } from '~/api/restock-api'
-import type { Ingredient } from '~/types/ingredient'
+import { useIngredientApi } from '~/api/ingredient-api'
+import type { Ingredient, IngredientUnit } from '~/types/ingredient'
 import type { Wallet } from '~/types/models'
-import type { QtyUnit, RestockPreview } from '~/types/restock'
+import type { RestockPreview } from '~/types/restock'
 
 const props = defineProps<{ ingredient: Ingredient; wallets: Wallet[] }>()
 const emit = defineEmits<{ done: [] }>()
@@ -96,13 +96,21 @@ const emit = defineEmits<{ done: [] }>()
 const toast = useToast()
 const { formatRupiah } = useFormatRupiah()
 const api = useRestockApi()
+const ingApi = useIngredientApi()
 
-const form = reactive<{ qty_value: number | null; qty_unit: QtyUnit; total_cost: number | null; wallet_id: string }>({
+const form = reactive<{ qty_value: number | null; total_cost: number | null; wallet_id: string }>({
   qty_value: null,
-  qty_unit: 'package',
   total_cost: null,
   wallet_id: '',
 })
+
+// Unit tiers (karton/pcs/kemasan/base). Selected tier converts qty → base for the BE.
+const { data: unitsData } = useAsyncData(`restock-units-${props.ingredient.id}`, () => ingApi.units(props.ingredient.id))
+const units = computed<IngredientUnit[]>(() => [...(unitsData.value?.data ?? [])].sort((a, b) => a.sort_order - b.sort_order))
+const selectedUnit = ref('')
+watch(units, (u) => { if (!selectedUnit.value && u.length) selectedUnit.value = u[0]!.label }, { immediate: true })
+const selectedFactor = computed(() => units.value.find((u) => u.label === selectedUnit.value)?.factor_to_base ?? 1)
+const baseQty = computed(() => (typeof form.qty_value === 'number' ? form.qty_value * selectedFactor.value : null))
 const acceptPrice = ref(false)
 const saving = ref(false)
 const preview = ref<RestockPreview | null>(null)
@@ -131,10 +139,10 @@ const changeClass = computed(() => {
 // Debounced BE preview — no FE price math
 let timer: ReturnType<typeof setTimeout> | null = null
 watch(
-  [() => form.qty_value, () => form.qty_unit, () => form.total_cost],
+  [() => form.qty_value, () => selectedUnit.value, () => form.total_cost],
   () => {
     if (timer) clearTimeout(timer)
-    if (typeof form.qty_value !== 'number' || form.qty_value <= 0 || typeof form.total_cost !== 'number' || form.total_cost < 0) {
+    if (typeof baseQty.value !== 'number' || baseQty.value <= 0 || typeof form.total_cost !== 'number' || form.total_cost < 0) {
       preview.value = null
       return
     }
@@ -142,8 +150,8 @@ watch(
       try {
         const res = await api.preview({
           ingredient_id: props.ingredient.id,
-          qty_value: form.qty_value as number,
-          qty_unit: form.qty_unit,
+          qty_value: baseQty.value as number,
+          qty_unit: 'base',
           total_cost: form.total_cost as number,
         })
         preview.value = res.data
@@ -165,8 +173,8 @@ async function onSave() {
   try {
     await api.create({
       ingredient_id: props.ingredient.id,
-      qty_value: form.qty_value as number,
-      qty_unit: form.qty_unit,
+      qty_value: baseQty.value as number,
+      qty_unit: 'base',
       total_cost: form.total_cost as number,
       wallet_id: form.wallet_id,
       accept_price: acceptPrice.value,

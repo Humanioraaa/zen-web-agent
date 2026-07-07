@@ -6,6 +6,7 @@ import type {
   StockCountSaveInput,
   PeriodSaleLine,
   PeriodSalesSaveInput,
+  SalesImportPreview,
 } from '~/types/stock-count'
 
 export function useStockCountApi() {
@@ -36,5 +37,8 @@ export function useStockCountApi() {
   const saveSales = (id: string, input: PeriodSalesSaveInput) =>
     apiFetch<ApiItem<{ saved: number }>>(`/api/stock-counts/${id}/sales`, { method: 'PUT', body: input })
 
-  return { list, get, create, saveItems, finalize, remove, getSales, saveSales }
+  const importSales = (id: string, files: string[]) =>
+    apiFetch<ApiItem<SalesImportPreview>>(`/api/stock-counts/${id}/sales-import`, { method: 'POST', body: { files } })
+
+  return { list, get, create, saveItems, finalize, remove, getSales, saveSales, importSales }
 }

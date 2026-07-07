@@ -36,6 +36,7 @@ import {
   IconSalad,
   IconToolsKitchen2,
   IconClipboardList,
+  IconCake,
   IconSettings,
   IconLogout,
 } from '@tabler/icons-vue'
@@ -43,6 +44,7 @@ import {
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: IconLayoutDashboard },
   { path: '/transactions', label: 'Transaksi', icon: IconReceipt2 },
+  { path: '/custom-orders', label: 'Pesanan Custom', icon: IconCake },
   { path: '/menu', label: 'Menu', icon: IconChefHat },
   { path: '/ingredients', label: 'Bahan Baku', icon: IconSalad },
   { path: '/stock-opname', label: 'Stock Opname', icon: IconClipboardList },

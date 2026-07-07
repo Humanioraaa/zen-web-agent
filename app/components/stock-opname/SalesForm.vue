@@ -14,6 +14,38 @@
       </div>
 
       <template v-else>
+        <div class="import-bar">
+          <input
+            ref="fileInput"
+            type="file"
+            accept=".json,application/json"
+            multiple
+            class="file-hidden"
+            @change="onFiles"
+          />
+          <button type="button" class="import-btn" :disabled="importing" @click="fileInput?.click()">
+            <IconFileImport :size="16" />
+            <span>{{ importing ? 'Mengimpor…' : 'Import Kasir Pintar' }}</span>
+          </button>
+          <span class="import-hint">upload file .json export penjualan (boleh beberapa hari)</span>
+        </div>
+
+        <div v-if="fuzzyLines.length" class="note note-info">
+          <strong>ℹ️ Perkiraan otomatis — cek angkanya:</strong>
+          <ul>
+            <li v-for="f in fuzzyLines" :key="f.menu_id">{{ f.kp_name }} → {{ f.menu_name }} ({{ f.qty_sold }})</li>
+          </ul>
+        </div>
+
+        <div v-if="unmatched.length" class="note note-warn">
+          <strong>⚠️ {{ unmatched.length }} item KP tak cocok (diabaikan):</strong>
+          <ul>
+            <li v-for="u in unmatched" :key="u.kp_name">
+              {{ u.kp_name }} ({{ u.qty_sold }})<template v-if="u.suggestions.length"> — mirip: {{ u.suggestions.map((s) => s.menu_name).join(', ') }}</template>
+            </li>
+          </ul>
+        </div>
+
         <div v-for="group in groups" :key="group.category" class="cat-group">
           <h3 class="cat-title">{{ group.category }}</h3>
           <div class="rows">
@@ -45,11 +77,15 @@
 
 <script setup lang="ts">
 import {
-  IconChevronDown, IconChevronUp, IconDeviceFloppy, IconLoader2,
+  IconChevronDown, IconChevronUp, IconDeviceFloppy, IconLoader2, IconFileImport,
 } from '@tabler/icons-vue'
 import { useToast } from 'vue-toastification'
 import { useStockCountApi } from '~/api/stock-count-api'
-import type { PeriodSaleLine } from '~/types/stock-count'
+import type {
+  PeriodSaleLine,
+  SalesImportMatchedLine,
+  SalesImportUnmatchedLine,
+} from '~/types/stock-count'
 
 const props = defineProps<{ stockCountId: string }>()
 const emit = defineEmits<{ saved: [] }>()
@@ -79,6 +115,37 @@ const groups = computed<Group[]>(() => {
   }
   return [...map.entries()].map(([category, items]) => ({ category, items }))
 })
+
+// --- Fase 4: Kasir Pintar sales import (prefill qty from an uploaded KP export) ---
+const fileInput = ref<HTMLInputElement | null>(null)
+const importing = ref(false)
+const unmatched = ref<SalesImportUnmatchedLine[]>([])
+const fuzzyLines = ref<SalesImportMatchedLine[]>([])
+
+async function onFiles(e: Event) {
+  const input = e.target as HTMLInputElement
+  const files = Array.from(input.files ?? [])
+  if (!files.length) return
+  importing.value = true
+  try {
+    const texts = await Promise.all(files.map((f) => f.text()))
+    const { data: preview } = await api.importSales(props.stockCountId, texts)
+    // Import is authoritative for the period → overwrite qty for matched menus.
+    for (const m of preview.matched) qty[m.menu_id] = m.qty_sold
+    fuzzyLines.value = preview.matched.filter((m) => m.confidence === 'fuzzy')
+    unmatched.value = preview.unmatched
+    const fuzzy = fuzzyLines.value.length
+    toast.success(
+      `Impor: ${preview.matched.length} cocok${fuzzy ? ` (${fuzzy} perkiraan)` : ''}, ${preview.unmatched.length} diabaikan. Cek lalu Simpan.`,
+    )
+  } catch (err) {
+    const msg = (err as { data?: { message?: string } })?.data?.message ?? 'Gagal mengimpor file'
+    toast.error(msg)
+  } finally {
+    importing.value = false
+    input.value = '' // let the same file be re-selected
+  }
+}
 
 const saving = ref(false)
 async function save() {
@@ -138,6 +205,64 @@ async function save() {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.import-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+}
+
+.file-hidden {
+  display: none;
+}
+
+.import-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--color-bg-subtle);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.import-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.import-hint {
+  font-size: 11px;
+  color: var(--color-text-subtle);
+}
+
+.note {
+  font-size: 12px;
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  line-height: 1.5;
+}
+
+.note ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.note-info {
+  background: color-mix(in srgb, var(--color-info, #2563eb) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-info, #2563eb) 30%, transparent);
+}
+
+.note-warn {
+  background: color-mix(in srgb, var(--color-warning, #d97706) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning, #d97706) 30%, transparent);
 }
 
 .cat-group {

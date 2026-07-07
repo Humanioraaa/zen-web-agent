@@ -24,9 +24,15 @@ export const HELP_TEXT = `📖 <b>Panduan Bot Zen Coffee</b>
 • pengeluaran hari ini?
 • pemasukan bulan ini?
 
+📦 <b>Stock Opname:</b>
+• /opname-kitchen — hitung stok Kitchen (54 bahan)
+• /opname-bar — hitung stok Bar (37 bahan)
+• saat menghitung: ketik jumlah (mis. <code>3 karton 5 pcs</code>), <code>skip</code>, <code>sisa</code>, /selesai
+
 ⚙️ <b>Lainnya:</b>
 • kategori baru: Packaging
 • kategori pemasukan baru: Tips
+• /pesanan — catat bayar/biaya ke pesanan custom
 
 💡 <b>Tips:</b>
 • Nominal: 15k, 150rb, 1jt
@@ -59,6 +65,8 @@ export function buildContext(
   walletId: string | null,
   walletToId: string | null,
   categoryId: string | null,
+  customOrderId: string | null = null,
+  customOrderLabel: string | null = null,
 ): BotSessionContext {
   return {
     type: parsed.type,
@@ -71,6 +79,8 @@ export function buildContext(
     date: todayIso(),
     pin_attempts: 0,
     editing_field: null,
+    custom_order_id: customOrderId,
+    ...(customOrderLabel ? { custom_order_label: customOrderLabel } : {}),
   }
 }
 
@@ -161,6 +171,7 @@ export async function saveTransactionFromSession(
     date: context.date,
     created_by: user.id,
     source: 'telegram',
+    custom_order_id: context.custom_order_id ?? undefined,
   })
 
   if (context.item && context.category_id) {
@@ -209,6 +220,10 @@ async function buildConfirmationText(event: H3Event, context: BotSessionContext)
   const typeIcon = context.type === 'income' ? '💰' : '🛒'
   const label = context.item ?? categoryName
   let text = `${amountDisplay} — ${label}\n${typeIcon} ${categoryName}  |  💳 ${wallet.name}`
+
+  if (context.custom_order_id) {
+    text += `\n🏷 Pesanan: ${context.custom_order_label ?? '-'}`
+  }
 
   if (context.amount > 500_000) {
     text += '\n\n⚠️ Nominal besar — PIN diperlukan saat konfirmasi'

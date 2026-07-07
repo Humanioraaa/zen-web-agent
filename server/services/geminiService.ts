@@ -24,6 +24,9 @@ function buildSystemPrompt(
   expenseCategories: string[],
   incomeCategories: string[],
 ): string {
+  const walletOptions = walletNames.length > 0
+    ? walletNames.map(w => `"${w}"`).join(' | ') + ' | null'
+    : 'null'
   return `You are a financial transaction parser for Zen Coffee, a coffee shop in Indonesia.
 Extract transaction information from the user's message and return a JSON object.
 
@@ -69,8 +72,8 @@ Response format:
 {
   "type": "expense" | "income" | "transfer" | "query" | "unknown",
   "amount": number | null,
-  "wallet": "${walletNames[0]}" | "${walletNames[1]}" | ... | null,
-  "wallet_to": "${walletNames[0]}" | "${walletNames[1]}" | ... | null,
+  "wallet": ${walletOptions},
+  "wallet_to": ${walletOptions},
   "category": string | null,
   "item": string | null,
   "qty_value": number | null,

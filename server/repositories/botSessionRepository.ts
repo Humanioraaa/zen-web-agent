@@ -13,10 +13,40 @@ export type BotState =
   | 'AWAITING_RESTOCK_QTY'
   | 'AWAITING_RESTOCK_CONFIRM'
   | 'AWAITING_RESTOCK_ANOMALY'
+  | 'AWAITING_ORDER_TX'
+  // --- Sprint 16 F3: bot stock-opname guided count ---
+  | 'AWAITING_OPNAME_COUNT'
+  | 'AWAITING_OPNAME_PENDING'
+  | 'AWAITING_OPNAME_JUMP'
+  | 'AWAITING_OPNAME_FINALIZE'
 
 export interface RestockCandidate {
   id: string
   name: string
+}
+
+// --- Sprint 16 F3: stock-opname counting session ---
+export interface OpnamePendingNew {
+  name: string
+  qty: number | null
+}
+
+export interface OpnameJumpCandidate {
+  id: string
+  name: string
+}
+
+export interface OpnameContext {
+  stock_count_id: string
+  category_id: string
+  area_label: string // "Kitchen" / "Bar" — for messages
+  cursor_item_id: string | null // stock_count_items.id currently on screen
+  pending_new: OpnamePendingNew[] // unknown items found mid-count (never auto-created)
+  // transient — set only while awaiting a pending/jump decision
+  pending_name?: string
+  pending_qty?: number | null
+  jump_qty_text?: string | null
+  jump_candidates?: OpnameJumpCandidate[]
 }
 
 export interface BotSessionContext {
@@ -40,6 +70,11 @@ export interface BotSessionContext {
   total_cost?: number
   accept_price?: boolean
   candidates?: RestockCandidate[]
+  // --- custom-order tagging (set during AWAITING_ORDER_TX + carried to save) ---
+  custom_order_id?: string | null
+  custom_order_label?: string
+  // --- Sprint 16 F3: stock-opname counting session ---
+  opname?: OpnameContext
 }
 
 export interface BotSession {
@@ -72,6 +107,22 @@ export async function getOrCreateSession(event: H3Event, telegramUserId: string)
     .insert({ telegram_user_id: telegramUserId, state: 'IDLE' })
     .select('telegram_user_id, state, context, updated_at')
     .single()
+
+  // Race: another request inserted between our select and this insert.
+  if (error?.code === '23505') {
+    const { data: raceData } = await client
+      .from('bot_sessions')
+      .select('telegram_user_id, state, context, updated_at')
+      .eq('telegram_user_id', telegramUserId)
+      .single()
+    if (!raceData) throw createError({ statusCode: 500, statusMessage: 'Session conflict' })
+    return {
+      telegram_user_id: raceData.telegram_user_id,
+      state: raceData.state as BotState,
+      context: raceData.context as BotSessionContext | null,
+      updated_at: raceData.updated_at,
+    }
+  }
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })
 
   return {
