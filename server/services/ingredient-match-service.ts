@@ -16,14 +16,22 @@ export async function matchIngredient(
   const rows = await matchIngredients(event, query, client)
   if (rows.length === 0) return { verdict: 'none', candidates: [] }
 
-  const candidates = rows.map((r: { id: string; name: string; base_unit: string; similarity: number }) => ({
-    id: r.id,
-    name: r.name,
-    base_unit: r.base_unit,
-    similarity: Number(r.similarity),
-  }))
-
   const normalized = query.trim().toLowerCase()
+
+  const candidates = rows
+    .map((r: { id: string; name: string; base_unit: string; similarity: number }) => {
+      const name = r.name.toLowerCase()
+      let similarity = Number(r.similarity)
+      // pg_trgm under-scores a short query against a long/parenthetical name
+      // (e.g. "evap" vs "Evap (susu evaporasi)" = 0.31). Boost prefix/substring hits
+      // so natural abbreviations resolve. Ties still surface as multiple → disambiguate.
+      if (name === normalized) similarity = 1
+      else if (name.startsWith(normalized)) similarity = Math.max(similarity, 0.9)
+      else if (name.includes(normalized)) similarity = Math.max(similarity, 0.7)
+      return { id: r.id, name: r.name, base_unit: r.base_unit, similarity }
+    })
+    .sort((a: { similarity: number }, b: { similarity: number }) => b.similarity - a.similarity)
+
   const top = candidates[0]!
 
   let verdict: MatchVerdict
