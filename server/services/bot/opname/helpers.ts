@@ -32,7 +32,9 @@ export function escapeHtml(s: string): string {
 // that contain digits intact, e.g. "Gula Aren 65% 3 kg" -> name "Gula Aren 65%", qty "3 kg".
 // Returns qty=null when the whole string is just a name (no trailing quantity).
 export function splitNameQty(line: string): { name: string; qty: string | null } {
-  const s = line.trim()
+  // Strip natural connectors first (same as parseTieredQty) so "dan"/"+"/"&" between
+  // tiers doesn't cut the quantity short and push part of it into the name. NOT "," (decimal).
+  const s = line.trim().replace(/\s+dan\s+/gi, ' ').replace(/\s*[+&]\s*/g, ' ').trim()
   const m = s.match(/^(.*?)\s+((?:\d[\d.,]*\s*[a-z]*\s*)+)$/i)
   if (m && m[1]!.trim() && /^\d/.test(m[2]!.trim())) {
     return { name: m[1]!.trim(), qty: m[2]!.trim() }
