@@ -159,6 +159,16 @@ export async function presentPreview(event: H3Event, session: BotSession, chatId
   if (preview.verdict === 'anomaly') {
     session.state = 'AWAITING_RESTOCK_ANOMALY'
     await saveSession(event, session)
+    // Mis-parsed qty (absurdly small package count) → warn about the QTY, not the price;
+    // the "🔢 Salah jumlah" button lets them re-enter. Prevents an HPP-poisoning typo.
+    if (preview.qty_suspect) {
+      await sendMessage(
+        chatId,
+        `${previewText(preview)}\n\n⚠️ Jumlahnya kelihatan <b>terlalu kecil</b> (${preview.packages} kemasan) → harga jadi ${formatRupiah(preview.package_cost)}/kemasan (ekstrem, bakal ngerusak HPP). Kemungkinan salah ketik jumlah — cek dulu:`,
+        restockAnomalyKeyboard(preview.direction ?? 'naik'),
+      )
+      return
+    }
     const dir = preview.direction ?? 'naik'
     await sendMessage(
       chatId,

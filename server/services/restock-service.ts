@@ -18,6 +18,11 @@ import { getPriceHistory } from '../repositories/price-history-repository'
 // Global anomaly threshold (%). Per-ingredient override lives on ingredients.price_alert_threshold_pct.
 export const GLOBAL_THRESHOLD_PCT = 20
 
+// Buying fewer than this many packages is almost always a mis-parsed qty (e.g. "1 butir"
+// read as 1 gram → 0.0004 packages → an absurd per-unit cost that poisons every recipe's
+// HPP). Flag it so the owner must confirm/re-enter instead of committing silently.
+export const MIN_PACKAGES = 0.01
+
 function round(value: number, dp = 4): number {
   const factor = 10 ** dp
   return Math.round(value * factor) / factor
@@ -40,6 +45,7 @@ interface PriceMath {
   threshold_pct: number
   last_package_cost: number
   package_size: number
+  qty_suspect: boolean
 }
 
 function computePriceMath(
@@ -73,6 +79,12 @@ function computePriceMath(
     }
   }
 
+  // An absurdly-tiny package count means a mis-parsed qty → never commit it silently,
+  // even on a baseline (fresh) ingredient. Force the anomaly-confirm path so the owner
+  // sees it + can re-enter the qty.
+  const qtySuspect = packages < MIN_PACKAGES
+  if (qtySuspect) verdict = 'anomaly'
+
   return {
     packages: round(packages),
     package_cost: round(packageCost),
@@ -83,6 +95,7 @@ function computePriceMath(
     threshold_pct: threshold,
     last_package_cost: lastPackageCost,
     package_size: packageSize,
+    qty_suspect: qtySuspect,
   }
 }
 
@@ -105,6 +118,7 @@ export async function calcRestockPreview(
     verdict: m.verdict,
     direction: m.direction,
     threshold_pct: m.threshold_pct,
+    qty_suspect: m.qty_suspect,
   }
 }
 

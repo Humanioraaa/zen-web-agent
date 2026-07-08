@@ -23,6 +23,7 @@ export interface RestockPreview {
   verdict: AnomalyVerdict
   direction: AnomalyDirection
   threshold_pct: number // effective threshold used (ingredient override ?? global)
+  qty_suspect: boolean // packages absurdly tiny (likely a mis-parsed qty → extreme unit cost)
 }
 
 export interface RestockCommitInput extends RestockPreviewInput {
